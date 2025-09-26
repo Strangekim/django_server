@@ -1,0 +1,194 @@
+<!-- templates/problems/upload.html -->
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>문제 업로드</title>
+    <style>
+      :root {
+        --primary: #2563eb;
+        --border: #e5e7eb;
+        --muted: #6b7280;
+      }
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 24px;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        max-width: 900px;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 16px;
+      }
+      .tab-btn {
+        border: 1px solid var(--border);
+        border-bottom: none;
+        padding: 10px 14px;
+        border-radius: 8px 8px 0 0;
+        background: #f9fafb;
+        cursor: pointer;
+      }
+      .tab-btn.active {
+        background: white;
+        border-color: var(--primary);
+        color: var(--primary);
+        font-weight: 600;
+      }
+      .tab-panel {
+        display: none;
+      }
+      .tab-panel.active {
+        display: block;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+      }
+      .radio-row {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .section {
+        margin-top: 16px;
+      }
+      .help {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 6px;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 20px;
+      }
+      .btn {
+        border: 1px solid var(--border);
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: #111827;
+        color: white;
+        cursor: pointer;
+      }
+      .btn.secondary {
+        background: #f3f4f6;
+        color: #111827;
+      }
+      .req {
+        color: #ef4444;
+        margin-left: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>문제 업로드</h1>
+    <div class="card">
+      <form method="post" enctype="multipart/form-data" action="">
+        {% csrf_token %}
+
+        <!-- 학년 탭 -->
+        <div class="section">
+          <h3>학년 선택<span class="req">*</span></h3>
+          <div class="tabs">
+            {% for grade, units in grade_units.items %}
+            <button
+              type="button"
+              class="tab-btn{% if forloop.first %} active{% endif %}"
+              data-tab="{{ grade }}"
+            >
+              {{ grade }}
+            </button>
+            {% endfor %}
+          </div>
+          <input
+            type="hidden"
+            name="grade"
+            id="gradeInput"
+            value="{{ first_grade }}"
+          />
+
+          {% for grade, units in grade_units.items %}
+          <div
+            class="tab-panel{% if forloop.first %} active{% endif %}"
+            data-panel="{{ grade }}"
+          >
+            <label style="display: block; margin: 6px 0 10px"
+              >단원 선택<span class="req">*</span></label
+            >
+            <div class="grid">
+              {% for value, label in units %}
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="{{ grade }}-{{ forloop.counter }}"
+                  name="unit"
+                  value="{{ value }}"
+                  required
+                />
+                <label for="{{ grade }}-{{ forloop.counter }}"
+                  >{{ label }}</label
+                >
+              </div>
+              {% endfor %}
+            </div>
+            <p class="help">
+              ※ 단원은 선택한 학년({{ grade }})의 목록 중 하나만 고를 수 있어요.
+            </p>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- 파일 업로드 -->
+        <div class="section">
+          <label for="problem_file"
+            >문제 파일 업로드<span class="req">*</span></label
+          >
+          <input
+            id="problem_file"
+            name="problem_file"
+            type="file"
+            accept=".jpg,.jpeg,.png,.pdf"
+            required
+          />
+          <p class="help">이미지(JPG/PNG) 또는 PDF 업로드 가능</p>
+        </div>
+
+        <div class="actions">
+          <button class="btn" type="submit">업로드</button>
+          <button class="btn secondary" type="reset">초기화</button>
+        </div>
+      </form>
+    </div>
+
+    <script>
+      const tabButtons = document.querySelectorAll(".tab-btn");
+      const panels = document.querySelectorAll(".tab-panel");
+      const gradeInput = document.getElementById("gradeInput");
+
+      tabButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          tabButtons.forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const grade = btn.dataset.tab;
+          gradeInput.value = grade;
+          panels.forEach((p) => {
+            p.classList.toggle("active", p.dataset.panel === grade);
+          });
+          document
+            .querySelectorAll('input[name="unit"]')
+            .forEach((r) => (r.checked = false));
+        });
+      });
+    </script>
+  </body>
+</html>
