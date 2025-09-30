@@ -227,7 +227,13 @@ def problem_upload(request):
             "problem_title": problem_title,
             "subject": subject,
             "unit": category.name,
+            "answer": answer,
             "difficulty": processed_data["difficulty"],
+            "problem": processed_data["problem"],
+            "choices": processed_data["choices"],
+            "description": processed_data["description"],
+            "original_img_url": original_url,
+            "separate_img_url": separate_url if separate_url else None,
             "has_separate_img": bool(processed_data["seperate_img"])
         },
     )

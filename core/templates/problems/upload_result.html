@@ -12,6 +12,7 @@
         --border: #e5e7eb;
         --text: #111827;
         --text-muted: #6b7280;
+        --blue: #3b82f6;
       }
       body {
         font-family: system-ui, -apple-system, sans-serif;
@@ -20,7 +21,7 @@
         background: #f9fafb;
       }
       .container {
-        max-width: 800px;
+        max-width: 1200px;
         margin: 0 auto;
       }
       .success-banner {
@@ -70,6 +71,8 @@
         font-size: 18px;
         color: var(--text);
         font-weight: 600;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 12px;
       }
       .info-grid {
         display: grid;
@@ -92,6 +95,8 @@
         color: var(--text);
         font-size: 14px;
         font-weight: 600;
+        flex: 1;
+        word-break: break-all;
       }
       .badge {
         display: inline-block;
@@ -104,9 +109,72 @@
         background: var(--success-bg);
         color: var(--success);
       }
+      .badge-gray {
+        background: #f3f4f6;
+        color: var(--text-muted);
+      }
+      .image-preview {
+        width: 100%;
+        max-width: 600px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        margin-top: 8px;
+      }
+      .problem-text {
+        background: #f9fafb;
+        padding: 16px;
+        border-radius: 8px;
+        border-left: 4px solid var(--blue);
+        margin-top: 8px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      .choices-list {
+        list-style: none;
+        padding: 0;
+        margin: 8px 0 0 0;
+      }
+      .choices-list li {
+        padding: 8px 12px;
+        background: #f9fafb;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        border-left: 3px solid var(--blue);
+      }
+      .description-list {
+        list-style: none;
+        padding: 0;
+        margin: 8px 0 0 0;
+      }
+      .description-item {
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        border-left: 4px solid var(--success);
+      }
+      .step-number {
+        display: inline-block;
+        background: var(--success);
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 24px;
+        font-size: 12px;
+        font-weight: 600;
+        margin-right: 8px;
+      }
+      .step-description {
+        display: inline;
+        line-height: 1.6;
+      }
       .actions {
         display: flex;
         gap: 12px;
+        flex-wrap: wrap;
       }
       .btn {
         padding: 12px 24px;
@@ -133,6 +201,31 @@
       .btn-secondary:hover {
         background: #e5e7eb;
       }
+      .section-divider {
+        margin: 16px 0;
+        border-top: 1px solid var(--border);
+      }
+      .url-box {
+        background: #f9fafb;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 12px;
+        color: var(--blue);
+        word-break: break-all;
+        margin-top: 8px;
+      }
+      .url-box a {
+        color: var(--blue);
+        text-decoration: none;
+      }
+      .url-box a:hover {
+        text-decoration: underline;
+      }
+      .empty-message {
+        color: var(--text-muted);
+        font-style: italic;
+      }
     </style>
   </head>
   <body>
@@ -156,15 +249,19 @@
         <div class="success-content">
           <h1>문제가 성공적으로 업로드되었습니다!</h1>
           <p>
-            문제 ID: <strong>{{ question_id }}</strong> | 이미지 처리 및 DB
-            저장 완료
+            문제 ID: <strong>{{ question_id }}</strong> | 이미지 처리, S3 업로드 및 DB 저장 완료
           </p>
         </div>
       </div>
 
+      <!-- 메타데이터 카드 -->
       <div class="card">
-        <h2>업로드된 문제 정보</h2>
+        <h2>📋 메타데이터</h2>
         <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">문제 ID</span>
+            <span class="info-value">{{ question_id }}</span>
+          </div>
           <div class="info-row">
             <span class="info-label">문제 제목</span>
             <span class="info-value">{{ problem_title }}</span>
@@ -182,16 +279,70 @@
             <span class="info-value">{{ difficulty }} / 100</span>
           </div>
           <div class="info-row">
-            <span class="info-label">도표 이미지</span>
-            <span class="info-value">
-              {% if has_separate_img %}
-              <span class="badge badge-success">분리됨</span>
-              {% else %}
-              <span class="badge">없음</span>
-              {% endif %}
-            </span>
+            <span class="info-label">정답</span>
+            <span class="info-value">{{ answer }}</span>
           </div>
         </div>
+      </div>
+
+      <!-- S3 이미지 URL 카드 -->
+      <div class="card">
+        <h2>🖼️ 업로드된 이미지</h2>
+
+        <h3 style="margin: 0 0 8px; font-size: 16px; color: var(--text);">원본 이미지</h3>
+        <div class="url-box">
+          <a href="{{ original_img_url }}" target="_blank">{{ original_img_url }}</a>
+        </div>
+        <img src="{{ original_img_url }}" alt="원본 이미지" class="image-preview" />
+
+        <div class="section-divider"></div>
+
+        <h3 style="margin: 16px 0 8px; font-size: 16px; color: var(--text);">분리된 도표 이미지</h3>
+        {% if separate_img_url %}
+        <div class="url-box">
+          <a href="{{ separate_img_url }}" target="_blank">{{ separate_img_url }}</a>
+        </div>
+        <img src="{{ separate_img_url }}" alt="분리된 도표" class="image-preview" />
+        {% else %}
+        <p class="empty-message">도표 이미지가 없습니다.</p>
+        {% endif %}
+      </div>
+
+      <!-- 문제 본문 카드 -->
+      <div class="card">
+        <h2>📝 문제 본문</h2>
+        <div class="problem-text">{{ problem }}</div>
+      </div>
+
+      <!-- 선택지 카드 -->
+      <div class="card">
+        <h2>✅ 선택지</h2>
+        {% if choices %}
+        <ul class="choices-list">
+          {% for choice in choices %}
+          <li>{{ forloop.counter }}. {{ choice }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-message">선택지가 없습니다 (주관식 문제).</p>
+        {% endif %}
+      </div>
+
+      <!-- 풀이 단계 카드 -->
+      <div class="card">
+        <h2>💡 풀이 단계</h2>
+        {% if description %}
+        <ul class="description-list">
+          {% for step in description %}
+          <li class="description-item">
+            <span class="step-number">{{ step.step_number }}</span>
+            <span class="step-description">{{ step.description }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-message">풀이 단계 정보가 없습니다.</p>
+        {% endif %}
       </div>
 
       <div class="actions">
