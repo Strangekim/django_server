@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py:*)",
+      "Bash(pip install:*)",
+      "Bash(curl http://127.0.0.1:8000/api/health/)",
+      "Bash(source:*)",
+      "Bash(curl http://127.0.0.1:8000/api/questions/)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

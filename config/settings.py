@@ -27,13 +27,16 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     "django.contrib.postgres",
+    'corsheaders',  # CORS 헤더 처리를 위한 패키지
     'core',
+    'api',  # API 앱 추가
     # 'storages'
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS 미들웨어 (CommonMiddleware 전에 위치)
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -109,3 +112,45 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# =====================================================
+# CORS (Cross-Origin Resource Sharing) 설정
+# 정적 프론트엔드에서 API 호출을 허용하기 위한 설정
+# =====================================================
+
+# 모든 출처에서의 요청 허용 (개발 환경)
+# 프로덕션에서는 CORS_ALLOWED_ORIGINS를 사용하여 특정 도메인만 허용해야 함
+CORS_ALLOW_ALL_ORIGINS = True
+
+# 프로덕션 환경에서는 아래 설정을 사용하고 CORS_ALLOW_ALL_ORIGINS는 False로 설정
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",
+#     "http://127.0.0.1:3000",
+#     "https://yourdomain.com",
+# ]
+
+# CORS 요청 시 쿠키 포함 허용
+CORS_ALLOW_CREDENTIALS = True
+
+# 허용할 HTTP 메서드
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# 허용할 HTTP 헤더
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
