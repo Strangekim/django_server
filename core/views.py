@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.http import HttpResponseBadRequest
-from django.db import transaction
+from django.db import transaction, IntegrityError
 import os
 import tempfile
 import boto3
@@ -67,7 +67,7 @@ def problem_upload(request):
         })
 
     # 3. 임시 파일로 저장 (Mathpix가 파일 경로를 필요로 함)
-    temp_file = None
+    temp_file_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as temp_file:
             for chunk in uploaded_file.chunks():
@@ -81,6 +81,36 @@ def problem_upload(request):
             return render(request, "problems/error.html", {
                 "error_title": "문제 처리 실패",
                 "error_message": f"문제 이미지를 분석하는 중 오류가 발생했습니다: {str(e)}"
+            })
+
+        # 4-1. OpenAI 응답 데이터 검증
+        required_keys = ["difficulty", "problem", "choices", "description", "seperate_img"]
+        missing_keys = [key for key in required_keys if key not in processed_data]
+        if missing_keys:
+            return render(request, "problems/error.html", {
+                "error_title": "데이터 구조 오류",
+                "error_message": f"AI 응답에서 필수 데이터가 누락되었습니다: {', '.join(missing_keys)}"
+            })
+
+        # difficulty 범위 검증
+        if not isinstance(processed_data["difficulty"], int) or not (1 <= processed_data["difficulty"] <= 100):
+            return render(request, "problems/error.html", {
+                "error_title": "데이터 검증 오류",
+                "error_message": f"난이도 값이 올바르지 않습니다: {processed_data.get('difficulty')}"
+            })
+
+        # description이 리스트인지 검증
+        if not isinstance(processed_data["description"], list):
+            return render(request, "problems/error.html", {
+                "error_title": "데이터 구조 오류",
+                "error_message": "풀이 단계 데이터 형식이 올바르지 않습니다."
+            })
+
+        # choices가 리스트인지 검증
+        if not isinstance(processed_data["choices"], list):
+            return render(request, "problems/error.html", {
+                "error_title": "데이터 구조 오류",
+                "error_message": "선택지 데이터 형식이 올바르지 않습니다."
             })
 
         # 5. Category 조회 (unit 값은 1~40의 숫자)
@@ -107,6 +137,18 @@ def problem_upload(request):
                     separate_img=""   # S3 업로드 후 업데이트
                 )
                 question_id = question.id
+        except IntegrityError as e:
+            # UNIQUE 제약 위반 (중복된 문제 제목)
+            if 'unique' in str(e).lower() or 'duplicate' in str(e).lower():
+                return render(request, "problems/error.html", {
+                    "error_title": "중복된 문제 제목",
+                    "error_message": f"'{problem_title}' 제목은 이미 사용 중입니다. 다른 제목을 입력해주세요."
+                })
+            else:
+                return render(request, "problems/error.html", {
+                    "error_title": "데이터베이스 저장 실패",
+                    "error_message": f"데이터 무결성 오류: {str(e)}"
+                })
         except Exception as e:
             return render(request, "problems/error.html", {
                 "error_title": "데이터베이스 저장 실패",
@@ -115,23 +157,31 @@ def problem_upload(request):
 
         # 7. S3 업로드
         try:
+            # 환경 변수 검증
+            aws_region = os.getenv('AWS_S3_REGION_NAME')
+            aws_access_key = os.getenv('AWS_ACCESS_KEY_ID')
+            aws_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+            bucket_name = os.getenv('AWS_STORAGE_BUCKET_NAME')
+
+            if not all([aws_region, aws_access_key, aws_secret_key, bucket_name]):
+                raise ValueError("AWS 환경 변수가 설정되지 않았습니다.")
+
             s3_client = boto3.client(
                 's3',
-                region_name=os.getenv('AWS_S3_REGION_NAME'),
-                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+                region_name=aws_region,
+                aws_access_key_id=aws_access_key,
+                aws_secret_access_key=aws_secret_key
             )
-            bucket_name = os.getenv('AWS_STORAGE_BUCKET_NAME')
 
             # 원본 이미지 업로드
             original_key = f"questions/{question_id}_original{os.path.splitext(uploaded_file.name)[1]}"
             with open(temp_file_path, 'rb') as f:
                 s3_client.upload_fileobj(f, bucket_name, original_key)
-            original_url = f"https://{bucket_name}.s3.{os.getenv('AWS_S3_REGION_NAME')}.amazonaws.com/{original_key}"
+            original_url = f"https://{bucket_name}.s3.{aws_region}.amazonaws.com/{original_key}"
 
             # 분리된 이미지 업로드 (있는 경우)
             separate_url = ""
-            if processed_data["seperate_img"]:
+            if processed_data.get("seperate_img"):
                 separate_key = f"questions/{question_id}_separate.png"
                 s3_client.put_object(
                     Bucket=bucket_name,
@@ -139,9 +189,9 @@ def problem_upload(request):
                     Body=processed_data["seperate_img"],
                     ContentType='image/png'
                 )
-                separate_url = f"https://{bucket_name}.s3.{os.getenv('AWS_S3_REGION_NAME')}.amazonaws.com/{separate_key}"
+                separate_url = f"https://{bucket_name}.s3.{aws_region}.amazonaws.com/{separate_key}"
 
-        except ClientError as e:
+        except Exception as e:
             # S3 업로드 실패 시 DB 레코드 삭제
             Question.objects.filter(id=question_id).delete()
             return render(request, "problems/error.html", {
@@ -162,8 +212,11 @@ def problem_upload(request):
 
     finally:
         # 9. 임시 파일 삭제
-        if temp_file and os.path.exists(temp_file_path):
-            os.unlink(temp_file_path)
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+            except Exception:
+                pass  # 임시 파일 삭제 실패는 무시
 
     # 10. 성공 페이지 렌더링
     return render(
