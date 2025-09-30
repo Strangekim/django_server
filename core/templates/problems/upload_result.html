@@ -1,0 +1,203 @@
+<!-- templates/problems/upload_result.html -->
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>업로드 성공</title>
+    <style>
+      :root {
+        --success: #10b981;
+        --success-bg: #ecfdf5;
+        --border: #e5e7eb;
+        --text: #111827;
+        --text-muted: #6b7280;
+      }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f9fafb;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .success-banner {
+        background: var(--success-bg);
+        border: 1px solid var(--success);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .success-icon {
+        width: 48px;
+        height: 48px;
+        background: var(--success);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .success-icon svg {
+        width: 24px;
+        height: 24px;
+        color: white;
+      }
+      .success-content h1 {
+        margin: 0 0 4px;
+        font-size: 20px;
+        color: var(--text);
+      }
+      .success-content p {
+        margin: 0;
+        font-size: 14px;
+        color: var(--text-muted);
+      }
+      .card {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+      }
+      .card h2 {
+        margin: 0 0 16px;
+        font-size: 18px;
+        color: var(--text);
+        font-weight: 600;
+      }
+      .info-grid {
+        display: grid;
+        gap: 12px;
+      }
+      .info-row {
+        display: flex;
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 8px;
+      }
+      .info-label {
+        color: var(--text-muted);
+        width: 120px;
+        font-size: 14px;
+        font-weight: 500;
+        flex-shrink: 0;
+      }
+      .info-value {
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .badge-success {
+        background: var(--success-bg);
+        color: var(--success);
+      }
+      .actions {
+        display: flex;
+        gap: 12px;
+      }
+      .btn {
+        padding: 12px 24px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.2s;
+        text-align: center;
+      }
+      .btn-primary {
+        background: #111827;
+        color: white;
+      }
+      .btn-primary:hover {
+        background: #1f2937;
+      }
+      .btn-secondary {
+        background: #f3f4f6;
+        color: #111827;
+        border: 1px solid var(--border);
+      }
+      .btn-secondary:hover {
+        background: #e5e7eb;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="success-banner">
+        <div class="success-icon">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+        </div>
+        <div class="success-content">
+          <h1>문제가 성공적으로 업로드되었습니다!</h1>
+          <p>
+            문제 ID: <strong>{{ question_id }}</strong> | 이미지 처리 및 DB
+            저장 완료
+          </p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>업로드된 문제 정보</h2>
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">문제 제목</span>
+            <span class="info-value">{{ problem_title }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">과목</span>
+            <span class="info-value">{{ subject }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">단원</span>
+            <span class="info-value">{{ unit }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">난이도</span>
+            <span class="info-value">{{ difficulty }} / 100</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">도표 이미지</span>
+            <span class="info-value">
+              {% if has_separate_img %}
+              <span class="badge badge-success">분리됨</span>
+              {% else %}
+              <span class="badge">없음</span>
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a href="/problems/upload" class="btn btn-primary">새 문제 업로드</a>
+        <a href="/" class="btn btn-secondary">메인으로</a>
+      </div>
+    </div>
+  </body>
+</html>

@@ -88,64 +88,713 @@
         color: #ef4444;
         margin-left: 2px;
       }
+      /* 로딩 오버레이 */
+      .loading-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+      }
+      .loading-overlay.active {
+        display: flex;
+      }
+      .loading-content {
+        background: white;
+        border-radius: 16px;
+        padding: 40px;
+        text-align: center;
+        max-width: 400px;
+      }
+      .spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid #e5e7eb;
+        border-top: 4px solid var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .loading-content h2 {
+        margin: 0 0 12px;
+        font-size: 20px;
+        color: var(--text);
+      }
+      .loading-content p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .progress-steps {
+        margin-top: 24px;
+        text-align: left;
+      }
+      .progress-step {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .progress-step.active {
+        color: var(--primary);
+        font-weight: 600;
+      }
+      .progress-step .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #e5e7eb;
+      }
+      .progress-step.active .dot {
+        background: var(--primary);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
     </style>
   </head>
   <body>
+    <!-- 로딩 오버레이 -->
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="loading-content">
+        <div class="spinner"></div>
+        <h2>문제를 처리하는 중입니다...</h2>
+        <p>잠시만 기다려주세요. 이미지 분석과 AI 처리에는 시간이 소요됩니다.</p>
+        <div class="progress-steps">
+          <div class="progress-step active" id="step1">
+            <span class="dot"></span>
+            <span>이미지 업로드 중...</span>
+          </div>
+          <div class="progress-step" id="step2">
+            <span class="dot"></span>
+            <span>OCR 텍스트 추출 중...</span>
+          </div>
+          <div class="progress-step" id="step3">
+            <span class="dot"></span>
+            <span>AI 문제 분석 중...</span>
+          </div>
+          <div class="progress-step" id="step4">
+            <span class="dot"></span>
+            <span>데이터베이스 저장 중...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <h1>문제 업로드</h1>
     <div class="card">
-      <form method="post" enctype="multipart/form-data" action="">
+      <form method="post" enctype="multipart/form-data" action="" id="uploadForm">
         {% csrf_token %}
 
-        <!-- 학년 탭 -->
+        <!-- 문제 제목 -->
         <div class="section">
-          <h3>학년 선택<span class="req">*</span></h3>
+          <label for="problem_title"
+            >문제 제목<span class="req">*</span></label
+          >
+          <input
+            id="problem_title"
+            name="problem_title"
+            type="text"
+            required
+            style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 6px;"
+            placeholder="문제 제목을 입력하세요"
+          />
+        </div>
+
+        <!-- 과목 탭 -->
+        <div class="section">
+          <h3>과목 선택<span class="req">*</span></h3>
           <div class="tabs">
-            {% for grade, units in grade_units.items %}
             <button
               type="button"
-              class="tab-btn{% if forloop.first %} active{% endif %}"
-              data-tab="{{ grade }}"
+              class="tab-btn active"
+              data-tab="공통 수학 1"
             >
-              {{ grade }}
+              공통 수학 1
             </button>
-            {% endfor %}
+            <button
+              type="button"
+              class="tab-btn"
+              data-tab="공통 수학 2"
+            >
+              공통 수학 2
+            </button>
+            <button
+              type="button"
+              class="tab-btn"
+              data-tab="대수"
+            >
+              대수
+            </button>
+            <button
+              type="button"
+              class="tab-btn"
+              data-tab="미적분 1"
+            >
+              미적분 1
+            </button>
+            <button
+              type="button"
+              class="tab-btn"
+              data-tab="확률과 통계"
+            >
+              확률과 통계
+            </button>
+            <button
+              type="button"
+              class="tab-btn"
+              data-tab="기하"
+            >
+              기하
+            </button>
+            <button
+              type="button"
+              class="tab-btn"
+              data-tab="미적분 2"
+            >
+              미적분 2
+            </button>
           </div>
           <input
             type="hidden"
-            name="grade"
-            id="gradeInput"
-            value="{{ first_grade }}"
+            name="subject"
+            id="subjectInput"
+            value="공통 수학 1"
           />
 
-          {% for grade, units in grade_units.items %}
+          <!-- 공통 수학 1 -->
           <div
-            class="tab-panel{% if forloop.first %} active{% endif %}"
-            data-panel="{{ grade }}"
+            class="tab-panel active"
+            data-panel="공통 수학 1"
           >
             <label style="display: block; margin: 6px 0 10px"
               >단원 선택<span class="req">*</span></label
             >
             <div class="grid">
-              {% for value, label in units %}
               <div class="radio-row">
                 <input
                   type="radio"
-                  id="{{ grade }}-{{ forloop.counter }}"
+                  id="unit-1"
                   name="unit"
-                  value="{{ value }}"
+                  value="1"
                   required
                 />
-                <label for="{{ grade }}-{{ forloop.counter }}"
-                  >{{ label }}</label
-                >
+                <label for="unit-1">1. 다항식</label>
               </div>
-              {% endfor %}
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-2"
+                  name="unit"
+                  value="2"
+                  required
+                />
+                <label for="unit-2">2. 나머지 정리와 인수분해</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-3"
+                  name="unit"
+                  value="3"
+                  required
+                />
+                <label for="unit-3">3. 복소수와 이차방정식</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-4"
+                  name="unit"
+                  value="4"
+                  required
+                />
+                <label for="unit-4">4. 이차방정식과 이차함수</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-5"
+                  name="unit"
+                  value="5"
+                  required
+                />
+                <label for="unit-5">5. 여러 가지 방정식과 부등식</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-6"
+                  name="unit"
+                  value="6"
+                  required
+                />
+                <label for="unit-6">6. 경우의 수</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-7"
+                  name="unit"
+                  value="7"
+                  required
+                />
+                <label for="unit-7">7. 행렬: 행렬의 뜻, 행렬의 연산</label>
+              </div>
             </div>
             <p class="help">
-              ※ 단원은 선택한 학년({{ grade }})의 목록 중 하나만 고를 수 있어요.
+              ※ 단원은 선택한 과목(공통 수학 1)의 목록 중 하나만 고를 수 있어요.
             </p>
           </div>
-          {% endfor %}
+
+          <!-- 공통 수학 2 -->
+          <div
+            class="tab-panel"
+            data-panel="공통 수학 2"
+          >
+            <label style="display: block; margin: 6px 0 10px"
+              >단원 선택<span class="req">*</span></label
+            >
+            <div class="grid">
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-8"
+                  name="unit"
+                  value="8"
+                  required
+                />
+                <label for="unit-8">8. 선분의 내분과 직선</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-9"
+                  name="unit"
+                  value="9"
+                  required
+                />
+                <label for="unit-9">9. 원의 방정식</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-10"
+                  name="unit"
+                  value="10"
+                  required
+                />
+                <label for="unit-10">10. 도형의 이동</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-11"
+                  name="unit"
+                  value="11"
+                  required
+                />
+                <label for="unit-11">11. 집합</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-12"
+                  name="unit"
+                  value="12"
+                  required
+                />
+                <label for="unit-12">12. 명제</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-13"
+                  name="unit"
+                  value="13"
+                  required
+                />
+                <label for="unit-13">13. 함수</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-14"
+                  name="unit"
+                  value="14"
+                  required
+                />
+                <label for="unit-14">14. 유리함수와 무리함수</label>
+              </div>
+            </div>
+            <p class="help">
+              ※ 단원은 선택한 과목(공통 수학 2)의 목록 중 하나만 고를 수 있어요.
+            </p>
+          </div>
+
+          <!-- 대수 -->
+          <div
+            class="tab-panel"
+            data-panel="대수"
+          >
+            <label style="display: block; margin: 6px 0 10px"
+              >단원 선택<span class="req">*</span></label
+            >
+            <div class="grid">
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-15"
+                  name="unit"
+                  value="15"
+                  required
+                />
+                <label for="unit-15">15. 지수와 로그</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-16"
+                  name="unit"
+                  value="16"
+                  required
+                />
+                <label for="unit-16">16. 지수함수와 로그함수</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-17"
+                  name="unit"
+                  value="17"
+                  required
+                />
+                <label for="unit-17">17. 삼각함수</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-18"
+                  name="unit"
+                  value="18"
+                  required
+                />
+                <label for="unit-18">18. 사인법칙과 코사인법칙</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-19"
+                  name="unit"
+                  value="19"
+                  required
+                />
+                <label for="unit-19">19. 등차수열과 등비수열</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-20"
+                  name="unit"
+                  value="20"
+                  required
+                />
+                <label for="unit-20">20. 수열의 합</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-21"
+                  name="unit"
+                  value="21"
+                  required
+                />
+                <label for="unit-21">21. 수학적 귀납법</label>
+              </div>
+            </div>
+            <p class="help">
+              ※ 단원은 선택한 과목(대수)의 목록 중 하나만 고를 수 있어요.
+            </p>
+          </div>
+
+          <!-- 미적분 1 -->
+          <div
+            class="tab-panel"
+            data-panel="미적분 1"
+          >
+            <label style="display: block; margin: 6px 0 10px"
+              >단원 선택<span class="req">*</span></label
+            >
+            <div class="grid">
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-22"
+                  name="unit"
+                  value="22"
+                  required
+                />
+                <label for="unit-22">22. 함수의 극한</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-23"
+                  name="unit"
+                  value="23"
+                  required
+                />
+                <label for="unit-23">23. 함수의 연속</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-24"
+                  name="unit"
+                  value="24"
+                  required
+                />
+                <label for="unit-24">24. 미분계수</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-25"
+                  name="unit"
+                  value="25"
+                  required
+                />
+                <label for="unit-25">25. 도함수</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-26"
+                  name="unit"
+                  value="26"
+                  required
+                />
+                <label for="unit-26">26. 도함수의 활용</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-27"
+                  name="unit"
+                  value="27"
+                  required
+                />
+                <label for="unit-27">27. 부정적분</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-28"
+                  name="unit"
+                  value="28"
+                  required
+                />
+                <label for="unit-28">28. 정적분</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-29"
+                  name="unit"
+                  value="29"
+                  required
+                />
+                <label for="unit-29">29. 정적분의 활용</label>
+              </div>
+            </div>
+            <p class="help">
+              ※ 단원은 선택한 과목(미적분 1)의 목록 중 하나만 고를 수 있어요.
+            </p>
+          </div>
+
+          <!-- 확률과 통계 -->
+          <div
+            class="tab-panel"
+            data-panel="확률과 통계"
+          >
+            <label style="display: block; margin: 6px 0 10px"
+              >단원 선택<span class="req">*</span></label
+            >
+            <div class="grid">
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-30"
+                  name="unit"
+                  value="30"
+                  required
+                />
+                <label for="unit-30">30. 순열과 조합</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-31"
+                  name="unit"
+                  value="31"
+                  required
+                />
+                <label for="unit-31">31. 이항정리</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-32"
+                  name="unit"
+                  value="32"
+                  required
+                />
+                <label for="unit-32">32. 확률의 개념과 활용</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-33"
+                  name="unit"
+                  value="33"
+                  required
+                />
+                <label for="unit-33">33. 확률분포</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-34"
+                  name="unit"
+                  value="34"
+                  required
+                />
+                <label for="unit-34">34. 통계적 추정</label>
+              </div>
+            </div>
+            <p class="help">
+              ※ 단원은 선택한 과목(확률과 통계)의 목록 중 하나만 고를 수 있어요.
+            </p>
+          </div>
+
+          <!-- 기하 -->
+          <div
+            class="tab-panel"
+            data-panel="기하"
+          >
+            <label style="display: block; margin: 6px 0 10px"
+              >단원 선택<span class="req">*</span></label
+            >
+            <div class="grid">
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-35"
+                  name="unit"
+                  value="35"
+                  required
+                />
+                <label for="unit-35">35. 이차곡선</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-36"
+                  name="unit"
+                  value="36"
+                  required
+                />
+                <label for="unit-36">36. 공간도형과 공간좌표</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-37"
+                  name="unit"
+                  value="37"
+                  required
+                />
+                <label for="unit-37">37. 벡터</label>
+              </div>
+            </div>
+            <p class="help">
+              ※ 단원은 선택한 과목(기하)의 목록 중 하나만 고를 수 있어요.
+            </p>
+          </div>
+
+          <!-- 미적분 2 -->
+          <div
+            class="tab-panel"
+            data-panel="미적분 2"
+          >
+            <label style="display: block; margin: 6px 0 10px"
+              >단원 선택<span class="req">*</span></label
+            >
+            <div class="grid">
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-38"
+                  name="unit"
+                  value="38"
+                  required
+                />
+                <label for="unit-38">38. 수열의 극한</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-39"
+                  name="unit"
+                  value="39"
+                  required
+                />
+                <label for="unit-39">39. 미분법</label>
+              </div>
+              <div class="radio-row">
+                <input
+                  type="radio"
+                  id="unit-40"
+                  name="unit"
+                  value="40"
+                  required
+                />
+                <label for="unit-40">40. 적분법</label>
+              </div>
+            </div>
+            <p class="help">
+              ※ 단원은 선택한 과목(미적분 2)의 목록 중 하나만 고를 수 있어요.
+            </p>
+          </div>
+        </div>
+
+        <!-- 정답 입력 -->
+        <div class="section">
+          <label for="problem_answer"
+            >정답<span class="req">*</span></label
+          >
+          <input
+            id="problem_answer"
+            name="problem_answer"
+            type="text"
+            required
+            style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-top: 6px;"
+            placeholder="정답을 입력하세요 (예: ①, 2, 15 등)"
+          />
         </div>
 
         <!-- 파일 업로드 -->
@@ -171,23 +820,62 @@
     </div>
 
     <script>
+      // 탭 전환 로직
       const tabButtons = document.querySelectorAll(".tab-btn");
       const panels = document.querySelectorAll(".tab-panel");
-      const gradeInput = document.getElementById("gradeInput");
+      const subjectInput = document.getElementById("subjectInput");
 
       tabButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
           tabButtons.forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
-          const grade = btn.dataset.tab;
-          gradeInput.value = grade;
+          const subject = btn.dataset.tab;
+          subjectInput.value = subject;
           panels.forEach((p) => {
-            p.classList.toggle("active", p.dataset.panel === grade);
+            p.classList.toggle("active", p.dataset.panel === subject);
           });
           document
             .querySelectorAll('input[name="unit"]')
             .forEach((r) => (r.checked = false));
         });
+      });
+
+      // 폼 제출 시 로딩 화면 표시 및 단계별 진행
+      const uploadForm = document.getElementById("uploadForm");
+      const loadingOverlay = document.getElementById("loadingOverlay");
+
+      uploadForm.addEventListener("submit", (e) => {
+        // 로딩 화면 표시
+        loadingOverlay.classList.add("active");
+
+        // 단계별 진행 애니메이션 (시각적 효과)
+        const steps = [
+          { id: "step1", delay: 0 },
+          { id: "step2", delay: 2000 },
+          { id: "step3", delay: 5000 },
+          { id: "step4", delay: 8000 }
+        ];
+
+        steps.forEach((step) => {
+          setTimeout(() => {
+            const stepEl = document.getElementById(step.id);
+            if (stepEl) {
+              // 이전 단계 비활성화
+              document.querySelectorAll(".progress-step").forEach((s) => {
+                if (s.id <= step.id) {
+                  s.classList.add("active");
+                }
+              });
+            }
+          }, step.delay);
+        });
+      });
+
+      // 뒤로가기 버튼으로 돌아왔을 때 로딩 화면 숨기기
+      window.addEventListener("pageshow", (event) => {
+        if (event.persisted) {
+          loadingOverlay.classList.remove("active");
+        }
       });
     </script>
   </body>

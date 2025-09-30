@@ -1,78 +1,180 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.http import HttpResponseBadRequest
+from django.db import transaction
+import os
+import tempfile
+import boto3
+from botocore.exceptions import ClientError
+from .models import Category, Question
+from mathpix import process_problem
 
 
 def health(request):
     return JsonResponse({"status": "ok"})
 
-# 학년별 단원(예시) — 템플릿에도 동일 키로 렌더링해서 탭 생성
-GRADE_UNITS = {
-    "고1": [
-        ("공통수학1-다항식", "공통수학1 - 다항식"),
-        ("공통수학1-방정식부등식", "공통수학1 - 방정식과 부등식"),
-        ("공통수학1-경우의수", "공통수학1 - 경우의 수"),
-        ("공통수학1-행렬", "공통수학1 - 행렬"),
-        ("공통수학2-도형의방정식", "공통수학2 - 도형의 방정식"),
-        ("공통수학2-집합과명제", "공통수학2 - 집합과 명제"),
-        ("공통수학2-함수와그래프", "공통수학2 - 함수와 그래프"),
-    ],
-    "고2": [
-        ("대수-지수로그", "대수 - 지수/로그"),
-        ("대수-삼각함수", "대수 - 삼각함수"),
-        ("대수-수열", "대수 - 수열"),
-        ("미적분1-극한연속", "미적분 I - 극한과 연속"),
-        ("미적분1-미분", "미적분 I - 미분"),
-        ("미적분1-적분", "미적분 I - 적분"),
-        ("확통-경우의수", "확률과 통계 - 경우의 수"),
-        ("확통-확률", "확률과 통계 - 확률"),
-        ("확통-통계", "확률과 통계 - 통계"),
-    ],
-    "고3": [
-        ("기하-벡터좌표", "기하 - 벡터/좌표"),
-        ("기하-이차곡선", "기하 - 이차곡선"),
-        ("미적분2-심화미분적분", "미적분 II - 심화 미분/적분"),
-        ("경제수학-기초", "경제수학 - 기초"),
-        ("인공지능수학-개론", "인공지능 수학 - 개론"),
-    ],
-}
-
-CURRICULUM_CHOICES = [
-    ("2022", "2022 개정(2025 적용)"),
-    ("2015", "2015 개정"),
-    ("기타", "기타/학교자율"),
-]
 
 def problem_upload(request):
+    """
+    문제 업로드 뷰
+
+    GET: 업로드 폼 렌더링
+    POST: 문제 이미지를 처리하여 DB와 S3에 저장
+    """
     if request.method == "GET":
-        first_grade = next(iter(GRADE_UNITS.keys()))
-        return render(
-            request,
-            "problems/upload.html",
-            {
-                "grade_units": GRADE_UNITS,
-                "first_grade": first_grade,
-            },
-        )
+        return render(request, "problems/upload.html")
 
-    # POST
-    grade = request.POST.get("grade")
-    unit = request.POST.get("unit")
-    file = request.FILES.get("problem_file")
+    # =====================
+    # POST: 문제 업로드 처리
+    # =====================
 
-    if not grade or not unit or grade not in GRADE_UNITS:
-        return HttpResponseBadRequest("학년/단원 선택이 올바르지 않습니다.")
-    valid_units = {u[0] for u in GRADE_UNITS[grade]}
-    if unit not in valid_units:
-        return HttpResponseBadRequest("선택한 단원이 해당 학년에 속하지 않습니다.")
+    # 1. 폼 데이터 추출
+    problem_title = request.POST.get("problem_title", "").strip()
+    subject = request.POST.get("subject", "").strip()
+    unit = request.POST.get("unit", "").strip()
+    answer = request.POST.get("problem_answer", "").strip()
+    uploaded_file = request.FILES.get("problem_file")
 
+    # 2. 입력 검증
+    if not problem_title:
+        return render(request, "problems/error.html", {
+            "error_title": "입력 오류",
+            "error_message": "문제 제목을 입력해주세요."
+        })
+
+    if not subject:
+        return render(request, "problems/error.html", {
+            "error_title": "입력 오류",
+            "error_message": "과목을 선택해주세요."
+        })
+
+    if not unit:
+        return render(request, "problems/error.html", {
+            "error_title": "입력 오류",
+            "error_message": "단원을 선택해주세요."
+        })
+
+    if not answer:
+        return render(request, "problems/error.html", {
+            "error_title": "입력 오류",
+            "error_message": "정답을 입력해주세요."
+        })
+
+    if not uploaded_file:
+        return render(request, "problems/error.html", {
+            "error_title": "입력 오류",
+            "error_message": "문제 파일을 업로드해주세요."
+        })
+
+    # 3. 임시 파일로 저장 (Mathpix가 파일 경로를 필요로 함)
+    temp_file = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as temp_file:
+            for chunk in uploaded_file.chunks():
+                temp_file.write(chunk)
+            temp_file_path = temp_file.name
+
+        # 4. Mathpix OCR + OpenAI 구조화 처리
+        try:
+            processed_data = process_problem(problem_title, temp_file_path)
+        except Exception as e:
+            return render(request, "problems/error.html", {
+                "error_title": "문제 처리 실패",
+                "error_message": f"문제 이미지를 분석하는 중 오류가 발생했습니다: {str(e)}"
+            })
+
+        # 5. Category 조회 (unit 값은 1~40의 숫자)
+        try:
+            category = Category.objects.get(id=int(unit))
+        except (ValueError, Category.DoesNotExist):
+            return render(request, "problems/error.html", {
+                "error_title": "카테고리 오류",
+                "error_message": f"유효하지 않은 단원 번호입니다: {unit}"
+            })
+
+        # 6. DB 저장 (이미지 URL은 나중에 업데이트)
+        try:
+            with transaction.atomic():
+                question = Question.objects.create(
+                    name=problem_title,
+                    category=category,
+                    difficulty=processed_data["difficulty"],
+                    problem=processed_data["problem"],
+                    choices=processed_data["choices"],
+                    description=processed_data["description"],
+                    answer=answer,
+                    original_img="",  # S3 업로드 후 업데이트
+                    separate_img=""   # S3 업로드 후 업데이트
+                )
+                question_id = question.id
+        except Exception as e:
+            return render(request, "problems/error.html", {
+                "error_title": "데이터베이스 저장 실패",
+                "error_message": f"문제를 데이터베이스에 저장하는 중 오류가 발생했습니다: {str(e)}"
+            })
+
+        # 7. S3 업로드
+        try:
+            s3_client = boto3.client(
+                's3',
+                region_name=os.getenv('AWS_S3_REGION_NAME'),
+                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+            )
+            bucket_name = os.getenv('AWS_STORAGE_BUCKET_NAME')
+
+            # 원본 이미지 업로드
+            original_key = f"questions/{question_id}_original{os.path.splitext(uploaded_file.name)[1]}"
+            with open(temp_file_path, 'rb') as f:
+                s3_client.upload_fileobj(f, bucket_name, original_key)
+            original_url = f"https://{bucket_name}.s3.{os.getenv('AWS_S3_REGION_NAME')}.amazonaws.com/{original_key}"
+
+            # 분리된 이미지 업로드 (있는 경우)
+            separate_url = ""
+            if processed_data["seperate_img"]:
+                separate_key = f"questions/{question_id}_separate.png"
+                s3_client.put_object(
+                    Bucket=bucket_name,
+                    Key=separate_key,
+                    Body=processed_data["seperate_img"],
+                    ContentType='image/png'
+                )
+                separate_url = f"https://{bucket_name}.s3.{os.getenv('AWS_S3_REGION_NAME')}.amazonaws.com/{separate_key}"
+
+        except ClientError as e:
+            # S3 업로드 실패 시 DB 레코드 삭제
+            Question.objects.filter(id=question_id).delete()
+            return render(request, "problems/error.html", {
+                "error_title": "S3 업로드 실패",
+                "error_message": f"이미지를 S3에 업로드하는 중 오류가 발생했습니다: {str(e)}"
+            })
+
+        # 8. DB 업데이트 (이미지 URL)
+        try:
+            question.original_img = original_url
+            question.separate_img = separate_url
+            question.save()
+        except Exception as e:
+            return render(request, "problems/error.html", {
+                "error_title": "데이터베이스 업데이트 실패",
+                "error_message": f"이미지 URL을 저장하는 중 오류가 발생했습니다: {str(e)}"
+            })
+
+    finally:
+        # 9. 임시 파일 삭제
+        if temp_file and os.path.exists(temp_file_path):
+            os.unlink(temp_file_path)
+
+    # 10. 성공 페이지 렌더링
     return render(
         request,
         "problems/upload_result.html",
         {
-            "grade": grade,
-            "unit": unit,
-            "filename": getattr(file, "name", None),
-            "has_file": file is not None,
+            "question_id": question_id,
+            "problem_title": problem_title,
+            "subject": subject,
+            "unit": category.name,
+            "difficulty": processed_data["difficulty"],
+            "has_separate_img": bool(processed_data["seperate_img"])
         },
     )
