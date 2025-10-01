@@ -50,6 +50,16 @@
       @response="handleCheatingResponse"
       @cancel="handleCheatingCancel"
     />
+
+    <!-- 정답 결과 모달 -->
+    <CorrectAnswerModal
+      :isOpen="correctAnswerModalOpen"
+      :score="correctAnswerData.score"
+      :mathpixText="correctAnswerData.mathpixText"
+      :aiVerification="correctAnswerData.aiVerification"
+      :additionalInfo="correctAnswerData.additionalInfo"
+      @close="handleCorrectAnswerModalClose"
+    />
   </div>
 </template>
 
@@ -61,6 +71,7 @@ import ProblemArea from './components/ProblemArea.vue'
 import MemoCanvas from './components/MemoCanvas.vue'
 import AnswerArea from './components/AnswerArea.vue'
 import CheatingCheckModal from './components/CheatingCheckModal.vue'
+import CorrectAnswerModal from './components/CorrectAnswerModal.vue'
 import { apiGet, apiPost, API_ENDPOINTS } from './api/config.js'
 
 export default {
@@ -71,7 +82,8 @@ export default {
     ProblemArea,
     MemoCanvas,
     AnswerArea,
-    CheatingCheckModal
+    CheatingCheckModal,
+    CorrectAnswerModal
   },
   setup() {
     // 사이드바 상태
@@ -96,6 +108,15 @@ export default {
 
     // 제출 대기 중인 데이터 (치팅 확인 후 사용)
     const pendingSubmission = ref(null)
+
+    // 정답 결과 모달 상태
+    const correctAnswerModalOpen = ref(false)
+    const correctAnswerData = reactive({
+      score: 0,
+      mathpixText: '',
+      aiVerification: null,
+      additionalInfo: null
+    })
 
     // API에서 문제 상세 정보 불러오기
     const fetchProblemDetail = async (questionId) => {
@@ -274,23 +295,34 @@ export default {
 
           // 정답 여부에 따라 메시지 표시
           if (verification.is_correct) {
+            // 정답일 경우: 결과 모달 표시
+            correctAnswerData.score = verification.total_score || 0
+            correctAnswerData.mathpixText = response.data.mathpix_result || ''
+            correctAnswerData.aiVerification = {
+              is_correct: verification.is_correct,
+              explanation: verification.explanation || '',
+              feedback: verification.feedback || '',
+              reasoning: verification.reasoning || ''
+            }
+            correctAnswerData.additionalInfo = {
+              step_scores: verification.step_scores,
+              confidence: verification.confidence
+            }
+
+            // 모달 열기
+            correctAnswerModalOpen.value = true
+
+            // AnswerArea에도 성공 메시지 표시 (모달 닫을 때까지 유지)
             answerArea.value?.setSubmissionStatus(
               'success',
               `정답입니다! (${verification.total_score}점)`
             )
-
-            // 정답일 경우 2초 후 페이지 리다이렉트 및 데이터 초기화
-            setTimeout(() => {
-              // 페이지 새로고침으로 완전히 초기화
-              window.location.reload()
-            }, 2000)
           } else {
+            // 오답일 경우: 기존대로 상세 결과 표시
             answerArea.value?.setSubmissionStatus(
               'error',
               `오답입니다. (${verification.total_score}점)`
             )
-
-            // 오답일 경우 상세 결과 표시 (정답일 때는 리다이렉트되므로 표시 안 함)
             answerArea.value?.showVerificationResult(response.data)
           }
 
@@ -336,6 +368,17 @@ export default {
       console.log('제출 취소됨')
     }
 
+    /**
+     * 정답 결과 모달 닫기 처리 (다음 문제로 이동)
+     */
+    const handleCorrectAnswerModalClose = () => {
+      // 모달 닫기
+      correctAnswerModalOpen.value = false
+
+      // 페이지 새로고침으로 완전히 초기화 (모든 상태와 캔버스 리셋)
+      window.location.reload()
+    }
+
     return {
       sidebarOpen,
       selectedCategory,
@@ -348,11 +391,14 @@ export default {
       timerRunning,
       loadingProblem,
       pendingSubmission,
+      correctAnswerModalOpen,
+      correctAnswerData,
       handleProblemSelect,
       handleAddImageToCanvas,
       handleSubmitAnswer,
       handleCheatingResponse,
-      handleCheatingCancel
+      handleCheatingCancel,
+      handleCorrectAnswerModalClose
     }
   }
 }
