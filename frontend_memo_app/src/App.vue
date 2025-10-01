@@ -43,6 +43,13 @@
         </div>
       </div>
     </div>
+
+    <!-- 치팅 여부 확인 모달 -->
+    <CheatingCheckModal
+      ref="cheatingModal"
+      @response="handleCheatingResponse"
+      @cancel="handleCheatingCancel"
+    />
   </div>
 </template>
 
@@ -53,6 +60,7 @@ import Header from './components/Header.vue'
 import ProblemArea from './components/ProblemArea.vue'
 import MemoCanvas from './components/MemoCanvas.vue'
 import AnswerArea from './components/AnswerArea.vue'
+import CheatingCheckModal from './components/CheatingCheckModal.vue'
 import { apiGet, apiPost, API_ENDPOINTS } from './api/config.js'
 
 export default {
@@ -62,7 +70,8 @@ export default {
     Header,
     ProblemArea,
     MemoCanvas,
-    AnswerArea
+    AnswerArea,
+    CheatingCheckModal
   },
   setup() {
     // 사이드바 상태
@@ -77,12 +86,16 @@ export default {
     const memoCanvas = ref(null)
     const problemArea = ref(null)
     const answerArea = ref(null)
+    const cheatingModal = ref(null)
 
     // 타이머 상태
     const timerRunning = ref(false)
 
     // 로딩 상태
     const loadingProblem = ref(false)
+
+    // 제출 대기 중인 데이터 (치팅 확인 후 사용)
+    const pendingSubmission = ref(null)
 
     // API에서 문제 상세 정보 불러오기
     const fetchProblemDetail = async (questionId) => {
@@ -182,7 +195,7 @@ export default {
       }
     }
 
-    // 정답 제출 핸들러
+    // 정답 제출 핸들러 (1단계: 데이터 검증 후 치팅 확인 모달 열기)
     const handleSubmitAnswer = async () => {
       // 1. 문제가 선택되지 않았으면 경고
       if (!currentProblem.value) {
@@ -204,11 +217,34 @@ export default {
         return
       }
 
-      // 4. API 요청 준비
+      // 4. 제출 데이터를 임시 저장
+      pendingSubmission.value = {
+        userAnswer,
+        sessionData
+      }
+
+      // 5. 치팅 여부 확인 모달 열기
+      cheatingModal.value?.open()
+    }
+
+    /**
+     * 치팅 여부 확인 응답 처리
+     * @param {number} label - 0: 정상 풀이, 1: 참고자료 사용 (치팅)
+     */
+    const handleCheatingResponse = async (label) => {
+      // 대기 중인 제출 데이터가 없으면 무시
+      if (!pendingSubmission.value) {
+        console.error('제출 데이터가 없습니다.')
+        return
+      }
+
+      const { userAnswer, sessionData } = pendingSubmission.value
+
+      // API 요청 준비
       answerArea.value?.setSubmissionStatus('info', '제출 중입니다...')
 
       try {
-        // 5. API 요청 데이터 구성
+        // API 요청 데이터 구성
         const requestData = {
           // 문제 메타데이터
           question_id: currentProblem.value.id,
@@ -221,15 +257,18 @@ export default {
           user_answer: userAnswer,
 
           // 전체 세션 데이터 (필기 기록, 이벤트, 통계 등)
-          session_data: sessionData
+          session_data: sessionData,
+
+          // 치팅 여부 라벨 (0: 정상, 1: 치팅)
+          label: label
         }
 
         console.log('제출 데이터:', requestData)
 
-        // 6. API 호출
+        // API 호출
         const response = await apiPost(API_ENDPOINTS.VERIFY_SOLUTION, requestData)
 
-        // 7. 응답 처리
+        // 응답 처리
         if (response.success) {
           const verification = response.data.verification
 
@@ -259,7 +298,23 @@ export default {
           'error',
           `제출 실패: ${error.message}`
         )
+      } finally {
+        // 제출 완료 후 임시 데이터 초기화
+        pendingSubmission.value = null
       }
+    }
+
+    /**
+     * 치팅 확인 취소 처리
+     */
+    const handleCheatingCancel = () => {
+      // 임시 저장된 제출 데이터 삭제
+      pendingSubmission.value = null
+
+      // 사용자에게 취소 메시지 표시
+      answerArea.value?.setSubmissionStatus('info', '제출이 취소되었습니다.')
+
+      console.log('제출 취소됨')
     }
 
     return {
@@ -270,11 +325,15 @@ export default {
       memoCanvas,
       problemArea,
       answerArea,
+      cheatingModal,
       timerRunning,
       loadingProblem,
+      pendingSubmission,
       handleProblemSelect,
       handleAddImageToCanvas,
-      handleSubmitAnswer
+      handleSubmitAnswer,
+      handleCheatingResponse,
+      handleCheatingCancel
     }
   }
 }

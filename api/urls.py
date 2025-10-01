@@ -24,6 +24,6 @@ urlpatterns = [
     path('questions/<int:question_id>/', views.get_question_detail, name='get_question_detail'),
 
     # 문제 풀이 검증 (필기 인식 + AI 평가)
-    # POST /api/verify-solution/
+    # POST  
     path('verify-solution/', views.verify_solution, name='verify_solution'),
 ]

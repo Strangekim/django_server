@@ -244,7 +244,7 @@ def get_question_detail(request, question_id):
         }, status=500, json_dumps_params={'ensure_ascii': False})
 
 
-def save_session_to_db_and_s3(question, session_data, user_answer, is_correct, problem_name, category_id, difficulty):
+def save_session_to_db_and_s3(question, session_data, user_answer, is_correct, problem_name, category_id, difficulty, label=None):
     """
     세션 데이터를 DB에 저장하고 원본 JSON을 S3에 업로드
 
@@ -256,6 +256,7 @@ def save_session_to_db_and_s3(question, session_data, user_answer, is_correct, p
         problem_name (str): 문제 이름
         category_id (int): 카테고리 ID
         difficulty (int): 난이도
+        label (int, optional): 치팅 여부 라벨 (0: 정상, 1: 치팅, None: 미분류)
 
     Returns:
         tuple: (session_uuid, s3_url)
@@ -336,8 +337,9 @@ def save_session_to_db_and_s3(question, session_data, user_answer, is_correct, p
             answer=str(user_answer) if user_answer else None,
             is_correct=is_correct,
 
-            # 지도학습 라벨 (나중에 수동으로 설정 가능)
-            label=None
+            # 지도학습 라벨 (사용자 입력 또는 None)
+            # 0: 정상 풀이, 1: 참고자료 사용(치팅), None: 미분류
+            label=label
         )
 
         # 2-2. Stroke 데이터 저장
@@ -447,6 +449,7 @@ def save_session_to_db_and_s3(question, session_data, user_answer, is_correct, p
             "difficulty": difficulty,
             "user_answer": user_answer,
             "is_correct": is_correct,
+            "label": label,  # 치팅 여부 라벨 추가
             "uploaded_at": datetime.utcnow().isoformat()
         }
 
@@ -561,6 +564,7 @@ def verify_solution(request):
         question_id = data.get('question_id')
         user_answer = data.get('user_answer')
         session_data = data.get('session_data')
+        label = data.get('label')  # 치팅 여부 라벨 (0: 정상, 1: 치팅, None: 미분류)
 
         if not question_id:
             return JsonResponse({
@@ -578,6 +582,13 @@ def verify_solution(request):
             return JsonResponse({
                 "success": False,
                 "error": "session_data가 필요합니다."
+            }, status=400, json_dumps_params={'ensure_ascii': False})
+
+        # label 값 검증 (0, 1, None만 허용)
+        if label is not None and label not in [0, 1]:
+            return JsonResponse({
+                "success": False,
+                "error": "label은 0(정상), 1(치팅), 또는 null이어야 합니다."
             }, status=400, json_dumps_params={'ensure_ascii': False})
 
         # 3. 문제 조회
@@ -602,7 +613,8 @@ def verify_solution(request):
                 is_correct=is_correct,
                 problem_name=data.get('problem_name', ''),
                 category_id=data.get('category_id'),
-                difficulty=data.get('difficulty')
+                difficulty=data.get('difficulty'),
+                label=label  # 치팅 여부 라벨 전달
             )
         except Exception as e:
             return JsonResponse({
@@ -626,7 +638,10 @@ def verify_solution(request):
                 )
             except Exception as e:
                 # 검증 실패해도 데이터는 저장되었으므로 경고만 로깅
+                import traceback
+                error_detail = traceback.format_exc()
                 print(f"풀이 검증 실패 (세션 {session_id}): {str(e)}")
+                print(f"상세 에러:\n{error_detail}")
                 verification_result = {
                     "total_score": 0,
                     "logic_score": 0,
@@ -634,7 +649,7 @@ def verify_solution(request):
                     "process_score": 0,
                     "is_correct": is_correct,
                     "comment": "풀이 검증에 실패했습니다.",
-                    "detailed_feedback": str(e)
+                    "detailed_feedback": f"에러: {str(e)}\n\n상세 정보:\n{error_detail}"
                 }
 
         # 7. 성공 응답 반환
@@ -674,8 +689,14 @@ def convert_strokes_to_text(strokes):
         strokes (list): 필기 stroke 배열
             [
                 {
-                    "id": "stroke_1",
-                    "points": [[x, y, timestamp], ...]
+                    "id": "uuid",
+                    "tool": "pen",
+                    "color": "#000000",
+                    "strokeWidth": 3,
+                    "points": [
+                        {"x": 10, "y": 20, "timestamp": 100, ...},
+                        ...
+                    ]
                 },
                 ...
             ]
@@ -693,6 +714,34 @@ def convert_strokes_to_text(strokes):
     if not app_id or not app_key:
         raise Exception("Mathpix API 자격 증명이 설정되지 않았습니다.")
 
+    # Frontend의 strokes 데이터를 Mathpix API 형식으로 변환
+    # Frontend: {"points": [{"x": 10, "y": 20, "timestamp": 100}, ...]}
+    # Mathpix: {"points": [[10, 20, 100], ...]}
+    converted_strokes = []
+    for stroke in strokes:
+        # eraser 스트로크는 제외
+        if stroke.get('tool') == 'eraser':
+            continue
+
+        points = stroke.get('points', [])
+        converted_points = []
+
+        for point in points:
+            x = point.get('x', 0)
+            y = point.get('y', 0)
+            timestamp = point.get('timestamp', 0)
+            converted_points.append([x, y, timestamp])
+
+        if converted_points:  # 포인트가 있는 경우만 추가
+            converted_strokes.append({
+                'id': stroke.get('id', ''),
+                'points': converted_points
+            })
+
+    # 변환된 스트로크가 없으면 예외 발생
+    if not converted_strokes:
+        raise Exception("변환할 필기 데이터가 없습니다.")
+
     # Mathpix Strokes API 엔드포인트
     url = "https://api.mathpix.com/v3/strokes"
 
@@ -705,7 +754,7 @@ def convert_strokes_to_text(strokes):
 
     # 요청 본문
     payload = {
-        'strokes': strokes,
+        'strokes': converted_strokes,
         'alphabet': 'all',  # 모든 문자 인식 (수식, 한글, 영어 등)
         'mode': 'text'  # 텍스트 형식으로 반환
     }
