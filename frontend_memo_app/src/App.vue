@@ -278,15 +278,21 @@ export default {
               'success',
               `정답입니다! (${verification.total_score}점)`
             )
+
+            // 정답일 경우 2초 후 페이지 리다이렉트 및 데이터 초기화
+            setTimeout(() => {
+              // 페이지 새로고침으로 완전히 초기화
+              window.location.reload()
+            }, 2000)
           } else {
             answerArea.value?.setSubmissionStatus(
               'error',
               `오답입니다. (${verification.total_score}점)`
             )
-          }
 
-          // 상세 결과 표시
-          answerArea.value?.showVerificationResult(response.data)
+            // 오답일 경우 상세 결과 표시 (정답일 때는 리다이렉트되므로 표시 안 함)
+            answerArea.value?.showVerificationResult(response.data)
+          }
 
           console.log('검증 완료:', response.data)
         } else {

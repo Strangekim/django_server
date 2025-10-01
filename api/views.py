@@ -763,30 +763,36 @@ def convert_strokes_to_text(strokes):
 
     # Frontend의 strokes 데이터를 Mathpix API 형식으로 변환
     # Frontend: {"points": [{"x": 10, "y": 20, "timestamp": 100}, ...]}
-    # Mathpix: {"points": [[10, 20, 100], ...]}
-    converted_strokes = []
+    # Mathpix: {"strokes": {"x": [[x1, x2, ...]], "y": [[y1, y2, ...]], "t": [[t1, t2, ...]]}}
+    x_arrays = []
+    y_arrays = []
+    t_arrays = []
+
     for stroke in strokes:
         # eraser 스트로크는 제외
         if stroke.get('tool') == 'eraser':
             continue
 
         points = stroke.get('points', [])
-        converted_points = []
+        if not points:
+            continue
+
+        x_coords = []
+        y_coords = []
+        t_coords = []
 
         for point in points:
-            x = point.get('x', 0)
-            y = point.get('y', 0)
-            timestamp = point.get('timestamp', 0)
-            converted_points.append([x, y, timestamp])
+            x_coords.append(point.get('x', 0))
+            y_coords.append(point.get('y', 0))
+            t_coords.append(point.get('timestamp', 0))
 
-        if converted_points:  # 포인트가 있는 경우만 추가
-            converted_strokes.append({
-                'id': stroke.get('id', ''),
-                'points': converted_points
-            })
+        if x_coords:  # 포인트가 있는 경우만 추가
+            x_arrays.append(x_coords)
+            y_arrays.append(y_coords)
+            t_arrays.append(t_coords)
 
     # 변환된 스트로크가 없으면 예외 발생
-    if not converted_strokes:
+    if not x_arrays:
         raise Exception("변환할 필기 데이터가 없습니다.")
 
     # Mathpix Strokes API 엔드포인트
@@ -799,11 +805,13 @@ def convert_strokes_to_text(strokes):
         'Content-Type': 'application/json'
     }
 
-    # 요청 본문
+    # 요청 본문 - Mathpix 공식 문서 형식에 맞춤
     payload = {
-        'strokes': converted_strokes,
-        'alphabet': 'all',  # 모든 문자 인식 (수식, 한글, 영어 등)
-        'mode': 'text'  # 텍스트 형식으로 반환
+        'strokes': {
+            'x': x_arrays,
+            'y': y_arrays,
+            't': t_arrays
+        }
     }
 
     # API 호출
