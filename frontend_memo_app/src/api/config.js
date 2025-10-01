@@ -4,10 +4,10 @@
  */
 
 // API 기본 URL
-// 개발 환경: localhost, 프로덕션 환경: EC2 서버
-export const API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:8000'
-  : 'http://54.180.150.130'
+// Vite 환경변수 사용 (.env.development, .env.production)
+// 프로덕션: 빈 문자열 (현재 도메인의 /api 사용, Nginx 프록시)
+// 개발: http://localhost:8000 (Django 개발 서버)
+export const API_BASE_URL = import.meta.env.VITE_API_BASE || ''
 
 // API 엔드포인트
 export const API_ENDPOINTS = {

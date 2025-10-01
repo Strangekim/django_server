@@ -109,14 +109,16 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+# 정적 파일 URL 경로 (반드시 슬래시로 시작하고 끝나야 함)
+STATIC_URL = '/static/'
 
-# 정적 파일 설정 (프로덕션)
+# 정적 파일 수집 디렉토리 (collectstatic 실행 시 모든 정적 파일이 여기로 복사됨)
+# 프로덕션 환경에서 Nginx가 이 경로를 직접 서빙
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# 추가 정적 파일 디렉토리
+# 추가 정적 파일 디렉토리 (개발 및 collectstatic에서 수집할 소스 디렉토리)
 STATICFILES_DIRS = [
-    BASE_DIR / "frontend_memo_app" / "dist",  # Vue 빌드된 assets 폴더
+    BASE_DIR / "frontend_memo_app" / "dist",  # Vue 빌드된 파일 (index.html, assets/)
 ]
 
 # Default primary key field type

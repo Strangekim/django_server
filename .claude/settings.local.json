@@ -8,7 +8,9 @@
       "Bash(curl http://127.0.0.1:8000/api/questions/)",
       "Bash(curl -X POST http://127.0.0.1:8000/api/verify-solution/ )",
       "Bash(npm:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(chmod:*)",
+      "Bash(./verify-build.sh:*)"
     ],
     "deny": [],
     "ask": []

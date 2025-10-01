@@ -6,7 +6,9 @@ __pycache__/
 # Env/venv
 .env
 venv/
-.env.*
+# 환경별 설정 파일은 Git에 포함 (.env.development, .env.production)
+# 단, .env.local은 제외
+.env.local
 
 # Django
 staticfiles/
