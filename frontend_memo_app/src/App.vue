@@ -294,10 +294,23 @@ export default {
         }
       } catch (error) {
         console.error('제출 실패:', error)
-        answerArea.value?.setSubmissionStatus(
-          'error',
-          `제출 실패: ${error.message}`
-        )
+
+        // 에러 메시지 상세화
+        let errorMessage = '제출 실패'
+
+        if (error.message.includes('500')) {
+          errorMessage = '서버 오류가 발생했습니다. 관리자에게 문의해주세요.'
+        } else if (error.message.includes('404')) {
+          errorMessage = '문제를 찾을 수 없습니다.'
+        } else if (error.message.includes('400')) {
+          errorMessage = '잘못된 요청입니다. 답안을 다시 확인해주세요.'
+        } else if (error.message.includes('Network') || error.message.includes('Failed to fetch')) {
+          errorMessage = '네트워크 연결을 확인해주세요.'
+        } else {
+          errorMessage = `제출 실패: ${error.message}`
+        }
+
+        answerArea.value?.setSubmissionStatus('error', errorMessage)
       } finally {
         // 제출 완료 후 임시 데이터 초기화
         pendingSubmission.value = null

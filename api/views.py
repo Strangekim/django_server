@@ -601,8 +601,28 @@ def verify_solution(request):
             }, status=404, json_dumps_params={'ensure_ascii': False})
 
         # 4. 정답 여부 확인 (Question 모델의 answer 필드와 비교)
-        user_answer_value = user_answer.get('selectedValue') if user_answer.get('type') == 'multiple_choice' else user_answer.get('answer')
-        is_correct = str(user_answer_value).strip() == str(question.answer).strip()
+        if user_answer.get('type') == 'multiple_choice':
+            # 객관식: selectedIndex를 1부터 시작하는 번호로 변환 (0 -> 1, 1 -> 2, ...)
+            # DB의 answer는 "1", "2", "3" 같은 문자열 형태의 번호
+            user_answer_number = str(user_answer.get('selectedIndex', -1) + 1)
+            user_answer_value = user_answer.get('selectedValue')  # 실제 보기 값 (로깅용)
+            is_correct = user_answer_number == str(question.answer).strip()
+
+            # 디버깅 로그
+            print(f"[정답 확인] 문제ID: {question_id}")
+            print(f"  - 사용자 선택: {user_answer.get('selectedIndex')}번 보기 (값: {user_answer_value})")
+            print(f"  - 비교: 사용자={user_answer_number} vs 정답={question.answer}")
+            print(f"  - 결과: {'정답' if is_correct else '오답'}")
+        else:
+            # 주관식: 입력값 그대로 비교
+            user_answer_value = user_answer.get('answer', '').strip()
+            is_correct = user_answer_value == str(question.answer).strip()
+
+            # 디버깅 로그
+            print(f"[정답 확인] 문제ID: {question_id} (주관식)")
+            print(f"  - 사용자 답: {user_answer_value}")
+            print(f"  - 정답: {question.answer}")
+            print(f"  - 결과: {'정답' if is_correct else '오답'}")
 
         # 5. DB에 세션 데이터 저장 및 S3 업로드
         try:
@@ -672,12 +692,26 @@ def verify_solution(request):
         }, json_dumps_params={'ensure_ascii': False})
 
     except Exception as e:
-        # 예상치 못한 에러
+        # 예상치 못한 에러 - 상세 정보 로깅 및 반환
         import traceback
-        traceback.print_exc()
+        error_traceback = traceback.format_exc()
+
+        # 서버 콘솔에 상세 에러 출력
+        print("=" * 80)
+        print("❌ verify_solution API 에러 발생!")
+        print("=" * 80)
+        print(f"에러 타입: {type(e).__name__}")
+        print(f"에러 메시지: {str(e)}")
+        print("\n상세 스택 트레이스:")
+        print(error_traceback)
+        print("=" * 80)
+
+        # 클라이언트에게 상세 에러 메시지 반환
         return JsonResponse({
             "success": False,
-            "error": f"서버 오류가 발생했습니다: {str(e)}"
+            "error": f"서버 오류가 발생했습니다: {str(e)}",
+            "error_type": type(e).__name__,
+            "error_detail": error_traceback if os.getenv('DEBUG', 'False') == 'True' else None
         }, status=500, json_dumps_params={'ensure_ascii': False})
 
 
