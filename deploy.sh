@@ -13,6 +13,26 @@ echo "=========================================="
 PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "📁 프로젝트 디렉토리: $PROJECT_DIR"
 
+# 가상환경 경로 설정 (기본값: venv)
+VENV_PATH="${VENV_PATH:-$PROJECT_DIR/venv}"
+
+# 가상환경 확인 및 활성화
+if [ -d "$VENV_PATH" ]; then
+  echo "🐍 가상환경 발견: $VENV_PATH"
+  echo "   가상환경 활성화 중..."
+  source "$VENV_PATH/bin/activate"
+  echo "✅ 가상환경 활성화 완료"
+else
+  echo "⚠️  경고: 가상환경을 찾을 수 없습니다: $VENV_PATH"
+  echo "   가상환경 없이 계속 진행합니다."
+  echo ""
+  echo "💡 가상환경 생성 방법:"
+  echo "   python3 -m venv venv"
+  echo "   source venv/bin/activate"
+  echo "   pip install -r requirements.txt"
+  echo ""
+fi
+
 # 1. Git Pull
 echo ""
 echo "📥 최신 코드 가져오기..."
@@ -21,7 +41,22 @@ git pull origin main
 # 2. Python 의존성 설치
 echo ""
 echo "🐍 Python 의존성 설치..."
-pip install -r requirements.txt
+if [ -d "$VENV_PATH" ]; then
+  # 가상환경이 있으면 pip 사용
+  pip install -r requirements.txt
+else
+  # 가상환경이 없으면 pip3 사용 (시스템 패키지)
+  echo "⚠️  가상환경 없이 설치 시도 중..."
+  pip3 install -r requirements.txt --user 2>/dev/null || {
+    echo "❌ pip 설치 실패. 가상환경을 생성하고 다시 시도하세요."
+    echo ""
+    echo "가상환경 생성 명령어:"
+    echo "  python3 -m venv venv"
+    echo "  source venv/bin/activate"
+    echo "  pip install -r requirements.txt"
+    exit 1
+  }
+fi
 
 # 3. Frontend 빌드
 echo ""
@@ -44,12 +79,20 @@ fi
 # 5. Django collectstatic
 echo ""
 echo "📦 정적 파일 수집..."
-python manage.py collectstatic --clear --noinput
+if [ -d "$VENV_PATH" ]; then
+  python manage.py collectstatic --clear --noinput
+else
+  python3 manage.py collectstatic --clear --noinput
+fi
 
 # 6. 데이터베이스 마이그레이션
 echo ""
 echo "💾 데이터베이스 마이그레이션..."
-python manage.py migrate
+if [ -d "$VENV_PATH" ]; then
+  python manage.py migrate
+else
+  python3 manage.py migrate
+fi
 
 # 7. 서비스 재시작 (gunicorn 또는 uwsgi)
 echo ""
