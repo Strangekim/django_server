@@ -18,4 +18,12 @@ urlpatterns = [
     # 모든 문제 목록 조회 (카테고리별 그룹화)
     # GET /api/questions/
     path('questions/', views.get_all_questions, name='get_all_questions'),
+
+    # 특정 문제 상세 정보 조회 (정답과 원본 이미지 제외)
+    # GET /api/questions/<question_id>/
+    path('questions/<int:question_id>/', views.get_question_detail, name='get_question_detail'),
+
+    # 문제 풀이 검증 (필기 인식 + AI 평가)
+    # POST /api/verify-solution/
+    path('verify-solution/', views.verify_solution, name='verify_solution'),
 ]

@@ -5,7 +5,10 @@
       "Bash(pip install:*)",
       "Bash(curl http://127.0.0.1:8000/api/health/)",
       "Bash(source:*)",
-      "Bash(curl http://127.0.0.1:8000/api/questions/)"
+      "Bash(curl http://127.0.0.1:8000/api/questions/)",
+      "Bash(curl -X POST http://127.0.0.1:8000/api/verify-solution/ )",
+      "Bash(npm:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,28 @@
+{
+  "name": "math-memo-app",
+  "version": "1.0.0",
+  "description": "수학 문제 풀이 및 부정 행위 검증 로직 탐지 어플",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
+    "android": "npm run build && npx cap sync android && npx cap run android",
+    "ios": "npm run build && npx cap sync ios && npx cap run ios",
+    "capacitor:add:android": "npx cap add android",
+    "capacitor:add:ios": "npx cap add ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/ios": "^7.4.3",
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "typescript": "^5.9.2",
+    "vite": "^5.0.0"
+  }
+}

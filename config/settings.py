@@ -14,7 +14,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-secret")
 
 DEBUG = True
 DEBUG = env.bool("DJANGO_DEBUG", default=True)
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["127.0.0.1", "localhost"])
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["127.0.0.1", "localhost", "54.180.150.130"])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 # Application definition
@@ -49,7 +49,10 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / "templates"],
+        'DIRS': [
+            BASE_DIR / "templates",
+            BASE_DIR / "frontend_memo_app" / "dist",  # Vue 빌드 파일 경로
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -107,6 +110,14 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# 정적 파일 설정 (프로덕션)
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# 추가 정적 파일 디렉토리
+STATICFILES_DIRS = [
+    BASE_DIR / "frontend_memo_app" / "dist" / "assets",  # Vue 빌드된 assets 폴더
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

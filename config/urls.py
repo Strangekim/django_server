@@ -5,7 +5,8 @@ Django 프로젝트의 모든 URL 패턴을 정의합니다.
 각 앱의 URL은 include()를 통해 분리하여 관리합니다.
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
+from django.views.generic import TemplateView
 from core.views import health
 
 urlpatterns = [
@@ -21,4 +22,8 @@ urlpatterns = [
     # API 앱: 정적 프론트엔드에서 호출할 REST API
     # /api/로 시작하는 모든 요청은 api.urls로 라우팅
     path("api/", include("api.urls")),
+
+    # 루트 URL: Vue SPA 서빙 (index.html)
+    # 다른 모든 URL보다 낮은 우선순위로 배치
+    re_path(r'^.*$', TemplateView.as_view(template_name='index.html'), name='frontend'),
 ]
