@@ -23,8 +23,12 @@ from api.models import Session, Stroke, StrokePoint, Event
 import boto3
 from botocore.exceptions import ClientError
 
-# OpenAI 클라이언트 초기화
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# OpenAI 클라이언트 초기화 (.env 파일에서 API 키 로드)
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    print("⚠️  경고: OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
+    print("   풀이 검증 기능이 작동하지 않을 수 있습니다.")
+openai_client = OpenAI(api_key=openai_api_key)
 
 
 @require_http_methods(["GET"])
@@ -422,13 +426,19 @@ def save_session_to_db_and_s3(question, session_data, user_answer, is_correct, p
 
     # 3. S3에 원본 JSON 업로드 (gzip 압축)
     try:
-        # AWS 환경 변수 확인
-        aws_region = os.getenv('AWS_REGION')
+        # AWS 환경 변수 확인 (.env 파일의 변수명과 일치시킴)
+        aws_region = os.getenv('AWS_S3_REGION_NAME')  # problems 업로드와 동일한 변수명 사용
         aws_access_key = os.getenv('AWS_ACCESS_KEY_ID')
         aws_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
         bucket_name = os.getenv('AWS_STORAGE_BUCKET_NAME')
 
         if not all([aws_region, aws_access_key, aws_secret_key, bucket_name]):
+            # 환경 변수 누락 시 상세 정보 출력
+            print(f"❌ AWS 환경 변수 누락!")
+            print(f"  - AWS_S3_REGION_NAME: {'✅' if aws_region else '❌ 없음'}")
+            print(f"  - AWS_ACCESS_KEY_ID: {'✅' if aws_access_key else '❌ 없음'}")
+            print(f"  - AWS_SECRET_ACCESS_KEY: {'✅' if aws_secret_key else '❌ 없음'}")
+            print(f"  - AWS_STORAGE_BUCKET_NAME: {'✅' if bucket_name else '❌ 없음'}")
             raise ValueError("AWS 환경 변수가 설정되지 않았습니다.")
 
         # S3 클라이언트 생성
@@ -741,12 +751,15 @@ def convert_strokes_to_text(strokes):
     Raises:
         Exception: Mathpix API 호출 실패 시
     """
-    # Mathpix API 자격 증명
+    # Mathpix API 자격 증명 (.env 파일에서 로드)
     app_id = os.getenv('MATHPIX_APP_ID')
     app_key = os.getenv('MATHPIX_APP_KEY')
 
     if not app_id or not app_key:
-        raise Exception("Mathpix API 자격 증명이 설정되지 않았습니다.")
+        print(f"❌ Mathpix API 자격 증명 누락!")
+        print(f"  - MATHPIX_APP_ID: {'✅' if app_id else '❌ 없음'}")
+        print(f"  - MATHPIX_APP_KEY: {'✅' if app_key else '❌ 없음'}")
+        raise Exception("Mathpix API 자격 증명이 설정되지 않았습니다. .env 파일을 확인하세요.")
 
     # Frontend의 strokes 데이터를 Mathpix API 형식으로 변환
     # Frontend: {"points": [{"x": 10, "y": 20, "timestamp": 100}, ...]}

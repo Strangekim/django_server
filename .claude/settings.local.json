@@ -10,7 +10,9 @@
       "Bash(npm:*)",
       "Bash(node:*)",
       "Bash(chmod:*)",
-      "Bash(./verify-build.sh:*)"
+      "Bash(./verify-build.sh:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
