@@ -814,8 +814,29 @@ def convert_strokes_to_text(strokes):
         }
     }
 
+    # 디버깅: 요청 데이터 출력
+    print("\n[Mathpix API 요청]")
+    print(f"URL: {url}")
+    print(f"Headers: {headers}")
+    print(f"Payload 구조:")
+    print(f"  - x_arrays 개수: {len(x_arrays)}")
+    print(f"  - y_arrays 개수: {len(y_arrays)}")
+    print(f"  - t_arrays 개수: {len(t_arrays)}")
+    if x_arrays:
+        print(f"  - 첫 번째 stroke x 좌표 개수: {len(x_arrays[0])}")
+        print(f"  - 첫 번째 stroke x 샘플: {x_arrays[0][:5]}")
+        print(f"  - 첫 번째 stroke y 샘플: {y_arrays[0][:5]}")
+        print(f"  - 첫 번째 stroke t 샘플: {t_arrays[0][:5]}")
+    print(f"전체 Payload: {json.dumps(payload, indent=2)}")
+
     # API 호출
     response = requests.post(url, headers=headers, json=payload, timeout=30)
+
+    # 디버깅: 응답 상태 출력
+    print(f"\n[Mathpix API 응답]")
+    print(f"Status Code: {response.status_code}")
+    print(f"Response Headers: {dict(response.headers)}")
+    print(f"Response Body: {response.text}")
 
     # 응답 확인
     if response.status_code != 200:
@@ -824,9 +845,12 @@ def convert_strokes_to_text(strokes):
 
     # 변환된 텍스트 추출
     result = response.json()
+    print(f"Result JSON: {json.dumps(result, indent=2)}")
     converted_text = result.get('text', '')
 
     if not converted_text:
+        print(f"[경고] Mathpix API 응답에 'text' 필드가 없거나 비어있습니다.")
+        print(f"전체 응답: {result}")
         raise Exception("Mathpix API가 텍스트를 변환하지 못했습니다.")
 
     return converted_text
