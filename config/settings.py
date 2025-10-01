@@ -116,7 +116,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # 추가 정적 파일 디렉토리
 STATICFILES_DIRS = [
-    BASE_DIR / "frontend_memo_app" / "dist" / "assets",  # Vue 빌드된 assets 폴더
+    BASE_DIR / "frontend_memo_app" / "dist",  # Vue 빌드된 assets 폴더
 ]
 
 # Default primary key field type
