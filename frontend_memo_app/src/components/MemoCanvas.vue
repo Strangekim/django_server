@@ -1074,7 +1074,8 @@ export default {
           tool: currentTool.value,
           color: currentColor.value,
           strokeWidth: currentTool.value === 'eraser' ? eraserSize : strokeWidth.value,
-          points: [eventData]
+          points: [eventData],
+          historyIndex: historyStep.value  // 현재 히스토리 단계 저장 (Undo 추적용)
         }
 
         // 스트로크 시작 이벤트 로깅
@@ -1207,6 +1208,47 @@ export default {
             ? sessionData.value.strokes.reduce((sum, stroke) => sum + stroke.points.length, 0) / sessionData.value.strokes.length
             : 0,
           sessionDuration
+        }
+      }
+    }
+
+    /**
+     * 현재 화면에 보이는 스트로크만 반환 (Undo로 되돌린 것 제외)
+     * Mathpix API 전송용으로 사용
+     *
+     * @returns {Array} 현재 historyStep 기준으로 유효한 스트로크 배열
+     */
+    const getVisibleStrokes = () => {
+      // 현재 히스토리 단계 이하의 스트로크만 필터링
+      // historyIndex가 현재 historyStep 이하인 스트로크만 화면에 보임
+      return sessionData.value.strokes.filter(stroke => {
+        // historyIndex가 없는 경우 (레거시 데이터) 모두 포함
+        if (stroke.historyIndex === undefined) {
+          return true
+        }
+        // 현재 히스토리 단계 이하인 스트로크만 포함
+        return stroke.historyIndex <= historyStep.value
+      })
+    }
+
+    /**
+     * API 제출용 세션 데이터 생성
+     * - 전체 스트로크: DB 저장용
+     * - 화면에 보이는 스트로크: Mathpix 전송용
+     *
+     * @returns {Object} 제출용 세션 데이터 (전체 + 가시 스트로크 포함)
+     */
+    const getSubmissionData = () => {
+      const baseData = generateSessionData()
+      const visibleStrokes = getVisibleStrokes()
+
+      // canvasData에 visibleStrokes 추가
+      return {
+        ...baseData,
+        canvasData: {
+          strokes: baseData.canvasData.strokes,  // 전체 스트로크 (DB 저장용)
+          visibleStrokes: visibleStrokes,  // 화면에 보이는 스트로크만 (Mathpix 전송용)
+          events: baseData.canvasData.events
         }
       }
     }
@@ -1759,6 +1801,8 @@ export default {
       sessionData,
       downloadSessionData,
       generateSessionData,
+      getVisibleStrokes,  // 화면에 보이는 스트로크만 반환
+      getSubmissionData,  // API 제출용 데이터 (전체 + 가시 스트로크)
       eraserCursorStyle,
       updateEraserCursor,
       handlePointerDown,

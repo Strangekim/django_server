@@ -231,8 +231,8 @@ export default {
         return
       }
 
-      // 3. 세션 데이터 가져오기 (전체 필기 기록)
-      const sessionData = memoCanvas.value?.generateSessionData()
+      // 3. 세션 데이터 가져오기 (전체 필기 기록 + 화면에 보이는 스트로크)
+      const sessionData = memoCanvas.value?.getSubmissionData()
       if (!sessionData) {
         answerArea.value?.setSubmissionStatus('error', '세션 데이터를 가져올 수 없습니다.')
         return

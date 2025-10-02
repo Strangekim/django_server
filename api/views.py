@@ -662,12 +662,20 @@ def verify_solution(request):
 
         # 6. OpenAI로 풀이 검증 (선택적 - strokes가 있는 경우만)
         verification_result = None
-        strokes = session_data.get('canvasData', {}).get('strokes', [])
 
-        if strokes:
+        # 화면에 보이는 스트로크만 Mathpix로 전송 (visibleStrokes 우선, 없으면 전체 strokes)
+        # DB에는 전체 strokes가 저장됨 (위 save_session_to_db_and_s3에서 처리)
+        visible_strokes = session_data.get('canvasData', {}).get('visibleStrokes')
+        all_strokes = session_data.get('canvasData', {}).get('strokes', [])
+
+        # visibleStrokes가 있으면 사용, 없으면 전체 strokes 사용 (하위 호환성)
+        strokes_for_mathpix = visible_strokes if visible_strokes is not None else all_strokes
+
+        if strokes_for_mathpix:
             try:
-                # Mathpix로 필기 변환
-                converted_text = convert_strokes_to_text(strokes)
+                # Mathpix로 필기 변환 (화면에 보이는 스트로크만)
+                print(f"[Mathpix 전송] 전체 스트로크: {len(all_strokes)}, 가시 스트로크: {len(strokes_for_mathpix)}")
+                converted_text = convert_strokes_to_text(strokes_for_mathpix)
 
                 # OpenAI로 풀이 검증
                 verification_result = verify_solution_with_openai(
@@ -731,6 +739,32 @@ def verify_solution(request):
             "error_type": type(e).__name__,
             "error_detail": error_traceback if os.getenv('DEBUG', 'False') == 'True' else None
         }, status=500, json_dumps_params={'ensure_ascii': False})
+
+
+def mask_sensitive_data(value, show_chars=4):
+    """
+    민감한 정보(API 키 등)를 마스킹하여 로그에 안전하게 출력
+
+    Args:
+        value (str): 마스킹할 값
+        show_chars (int): 앞부분에 보여줄 문자 수 (기본 4자)
+
+    Returns:
+        str: 마스킹된 문자열 (예: 'abcd****')
+
+    Examples:
+        >>> mask_sensitive_data('1234567890', 4)
+        '1234******'
+        >>> mask_sensitive_data('abc', 4)
+        '****'
+    """
+    if not value:
+        return '****'
+
+    if len(value) <= show_chars:
+        return '*' * len(value)
+
+    return value[:show_chars] + '*' * (len(value) - show_chars)
 
 
 def convert_strokes_to_text(strokes):
@@ -819,23 +853,23 @@ def convert_strokes_to_text(strokes):
             'x': x_arrays,
             'y': y_arrays,
             't': t_arrays
-        }
+        },
+        # 명시적으로 원하는 응답 포맷 지정 (우선순위대로)
+        'formats': ['text', 'latex_styled', 'data']
     }
 
-    # 디버깅: 요청 데이터 출력
+    # 디버깅: 요청 데이터 출력 (민감정보 마스킹)
     print("\n[Mathpix API 요청]")
     print(f"URL: {url}")
-    print(f"Headers: {headers}")
+    print(f"Headers: app_id={mask_sensitive_data(app_id)}, app_key={mask_sensitive_data(app_key)}, Content-Type=application/json")
     print(f"Payload 구조:")
-    print(f"  - x_arrays 개수: {len(x_arrays)}")
-    print(f"  - y_arrays 개수: {len(y_arrays)}")
-    print(f"  - t_arrays 개수: {len(t_arrays)}")
+    print(f"  - 스트로크 개수: {len(x_arrays)}")
     if x_arrays:
-        print(f"  - 첫 번째 stroke x 좌표 개수: {len(x_arrays[0])}")
+        print(f"  - 첫 번째 stroke 포인트 개수: {len(x_arrays[0])}")
         print(f"  - 첫 번째 stroke x 샘플: {x_arrays[0][:5]}")
         print(f"  - 첫 번째 stroke y 샘플: {y_arrays[0][:5]}")
         print(f"  - 첫 번째 stroke t 샘플: {t_arrays[0][:5]}")
-    print(f"전체 Payload: {json.dumps(payload, indent=2)}")
+    # 전체 payload는 너무 크므로 구조만 출력 (보안 및 가독성)
 
     # API 호출
     response = requests.post(url, headers=headers, json=payload, timeout=30)
@@ -851,16 +885,26 @@ def convert_strokes_to_text(strokes):
         error_message = response.json().get('error', 'Unknown error')
         raise Exception(f"Mathpix API 오류 (status {response.status_code}): {error_message}")
 
-    # 변환된 텍스트 추출
+    # 변환된 텍스트 추출 (여러 필드 폴백 시도)
     result = response.json()
     print(f"Result JSON: {json.dumps(result, indent=2)}")
-    converted_text = result.get('text', '')
+
+    # 우선순위대로 텍스트 필드 추출 시도
+    converted_text = (
+        result.get('text') or  # 1순위: text 필드
+        result.get('latex_styled') or  # 2순위: latex_styled 필드
+        result.get('data', {}).get('text') or  # 3순위: data.text 필드
+        result.get('latex') or  # 4순위: latex 필드 (레거시)
+        ''
+    )
 
     if not converted_text:
-        print(f"[경고] Mathpix API 응답에 'text' 필드가 없거나 비어있습니다.")
-        print(f"전체 응답: {result}")
+        print(f"[경고] Mathpix API 응답에서 텍스트를 찾을 수 없습니다.")
+        print(f"응답 구조: {list(result.keys())}")
+        print(f"전체 응답 (첫 200자): {str(result)[:200]}")
         raise Exception("Mathpix API가 텍스트를 변환하지 못했습니다.")
 
+    print(f"[성공] 변환된 텍스트 길이: {len(converted_text)} 문자")
     return converted_text
 
 
