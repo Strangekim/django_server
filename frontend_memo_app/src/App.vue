@@ -256,7 +256,11 @@ export default {
         sessionData
       }
 
-      // 5. 치팅 여부 확인 모달 열기
+      // 5. 로딩 상태 즉시 시작 (사용자에게 즉각적인 피드백 제공)
+      isVerifying.value = true
+      answerArea.value?.setSubmissionStatus('info', '답안을 제출하는 중입니다...')
+
+      // 6. 치팅 여부 확인 모달 열기
       cheatingModal.value?.open()
     }
 
@@ -273,9 +277,8 @@ export default {
 
       const { userAnswer, sessionData } = pendingSubmission.value
 
-      // 로딩 시작
-      isVerifying.value = true
-      answerArea.value?.setSubmissionStatus('info', '제출 중입니다...')
+      // 로딩 상태 메시지 업데이트 (이미 로딩 중이므로 메시지만 변경)
+      answerArea.value?.setSubmissionStatus('info', 'AI가 답안을 검증하는 중입니다...')
 
       try {
         // API 요청 데이터 구성
@@ -376,6 +379,9 @@ export default {
      * 치팅 확인 취소 처리
      */
     const handleCheatingCancel = () => {
+      // 로딩 상태 종료 (제출 취소)
+      isVerifying.value = false
+
       // 임시 저장된 제출 데이터 삭제
       pendingSubmission.value = null
 
