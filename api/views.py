@@ -848,11 +848,14 @@ def convert_strokes_to_text(strokes):
     }
 
     # 요청 본문 - Mathpix 공식 문서 형식에 맞춤
+    # 중요: strokes가 2중 중첩 구조여야 함
     payload = {
         'strokes': {
-            'x': x_arrays,
-            'y': y_arrays,
-            't': t_arrays
+            'strokes': {  # 중첩된 strokes 키 필요
+                'x': x_arrays,
+                'y': y_arrays
+                # t (타임스탬프)는 선택적이므로 제거
+            }
         },
         # 명시적으로 원하는 응답 포맷 지정 (우선순위대로)
         'formats': ['text', 'latex_styled', 'data']
