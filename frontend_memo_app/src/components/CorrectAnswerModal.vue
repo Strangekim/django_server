@@ -22,19 +22,32 @@
         <div v-if="aiVerification" class="result-section">
           <h3 class="section-title">AI 풀이 검증</h3>
           <div class="result-content ai-content">
-            <div class="verification-item">
-              <span class="label">정답 여부:</span>
-              <span class="value" :class="{ correct: aiVerification.is_correct }">
-                {{ aiVerification.is_correct ? '정답' : '오답' }}
-              </span>
+            <!-- 세부 점수 -->
+            <div class="score-breakdown">
+              <div class="score-item">
+                <span class="score-label">논리력</span>
+                <span class="score-value">{{ aiVerification.logic_score }}점</span>
+              </div>
+              <div class="score-item">
+                <span class="score-label">정확성</span>
+                <span class="score-value">{{ aiVerification.accuracy_score }}점</span>
+              </div>
+              <div class="score-item">
+                <span class="score-label">풀이과정</span>
+                <span class="score-value">{{ aiVerification.process_score }}점</span>
+              </div>
             </div>
-            <div v-if="aiVerification.explanation" class="verification-item">
-              <span class="label">설명:</span>
-              <div class="explanation">{{ aiVerification.explanation }}</div>
+
+            <!-- 코멘트 -->
+            <div v-if="aiVerification.comment" class="verification-item">
+              <span class="label">📝 총평</span>
+              <div class="comment">{{ aiVerification.comment }}</div>
             </div>
-            <div v-if="aiVerification.feedback" class="verification-item">
-              <span class="label">피드백:</span>
-              <div class="feedback">{{ aiVerification.feedback }}</div>
+
+            <!-- 상세 피드백 -->
+            <div v-if="aiVerification.detailed_feedback" class="verification-item">
+              <span class="label">💡 상세 피드백</span>
+              <div class="feedback">{{ aiVerification.detailed_feedback }}</div>
             </div>
           </div>
         </div>
@@ -290,15 +303,48 @@ export default {
   font-weight: 600;
 }
 
-.explanation,
+/* 점수 분석 */
+.score-breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.score-item {
+  background: white;
+  border: 2px solid #10b981;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.score-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.score-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.comment,
 .feedback {
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.8;
   color: #374151;
-  padding: 8px;
+  padding: 12px;
   background: white;
   border-radius: 6px;
   border: 1px solid #e5e7eb;
+  white-space: pre-wrap;
 }
 
 .info-content {

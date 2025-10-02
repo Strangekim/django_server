@@ -60,6 +60,13 @@
       :additionalInfo="correctAnswerData.additionalInfo"
       @close="handleCorrectAnswerModalClose"
     />
+
+    <!-- 로딩 모달 -->
+    <LoadingModal
+      :isOpen="isVerifying"
+      title="답안 검증 중..."
+      message="AI가 풀이를 분석하고 있습니다."
+    />
   </div>
 </template>
 
@@ -72,6 +79,7 @@ import MemoCanvas from './components/MemoCanvas.vue'
 import AnswerArea from './components/AnswerArea.vue'
 import CheatingCheckModal from './components/CheatingCheckModal.vue'
 import CorrectAnswerModal from './components/CorrectAnswerModal.vue'
+import LoadingModal from './components/LoadingModal.vue'
 import { apiGet, apiPost, API_ENDPOINTS } from './api/config.js'
 
 export default {
@@ -82,6 +90,7 @@ export default {
     ProblemArea,
     MemoCanvas,
     AnswerArea,
+    LoadingModal,
     CheatingCheckModal,
     CorrectAnswerModal
   },
@@ -117,6 +126,9 @@ export default {
       aiVerification: null,
       additionalInfo: null
     })
+
+    // 로딩 상태
+    const isVerifying = ref(false)
 
     // API에서 문제 상세 정보 불러오기
     const fetchProblemDetail = async (questionId) => {
@@ -261,7 +273,8 @@ export default {
 
       const { userAnswer, sessionData } = pendingSubmission.value
 
-      // API 요청 준비
+      // 로딩 시작
+      isVerifying.value = true
       answerArea.value?.setSubmissionStatus('info', '제출 중입니다...')
 
       try {
@@ -300,13 +313,15 @@ export default {
             correctAnswerData.mathpixText = response.data.mathpix_result || ''
             correctAnswerData.aiVerification = {
               is_correct: verification.is_correct,
-              explanation: verification.explanation || '',
-              feedback: verification.feedback || '',
-              reasoning: verification.reasoning || ''
+              logic_score: verification.logic_score || 0,
+              accuracy_score: verification.accuracy_score || 0,
+              process_score: verification.process_score || 0,
+              comment: verification.comment || '',
+              detailed_feedback: verification.detailed_feedback || ''
             }
             correctAnswerData.additionalInfo = {
-              step_scores: verification.step_scores,
-              confidence: verification.confidence
+              session_id: response.data.session_id,
+              s3_url: response.data.s3_url
             }
 
             // 모달 열기
@@ -350,6 +365,8 @@ export default {
 
         answerArea.value?.setSubmissionStatus('error', errorMessage)
       } finally {
+        // 로딩 종료
+        isVerifying.value = false
         // 제출 완료 후 임시 데이터 초기화
         pendingSubmission.value = null
       }
