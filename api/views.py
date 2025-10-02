@@ -633,43 +633,21 @@ def verify_solution(request):
             # 정답 비교
             is_correct = user_answer_number == db_answer_stripped
 
-            # 상세 디버깅 로그
-            print(f"\n{'='*80}")
-            print(f"[정답 확인 상세] 문제ID: {question_id}")
-            print(f"{'='*80}")
-            print(f"📝 문제 정보:")
-            print(f"  - 문제명: {question.name}")
-            print(f"  - 선택지 개수: {len(question.choices)}")
-            print(f"  - 선택지 목록: {question.choices}")
-            print(f"\n👤 사용자 입력:")
-            print(f"  - user_answer 전체: {user_answer}")
-            print(f"  - selectedIndex (0-based): {selected_index}")
-            print(f"  - selectedValue (보기 값): {user_answer_value}")
-            print(f"  - user_answer_number (1-based): '{user_answer_number}'")
-            print(f"\n✅ DB 정답:")
-            print(f"  - question.answer (원본): '{db_answer_raw}'")
-            print(f"  - question.answer (타입): {type(db_answer_raw)}")
-            print(f"  - question.answer (길이): {len(str(db_answer_raw))}")
-            print(f"  - question.answer (repr): {repr(db_answer_raw)}")
-            print(f"  - question.answer (strip 후): '{db_answer_stripped}'")
-            print(f"  - question.answer (strip 후 길이): {len(db_answer_stripped)}")
-            print(f"\n🔍 비교 결과:")
-            print(f"  - 사용자 답: '{user_answer_number}' (타입: {type(user_answer_number)}, 길이: {len(user_answer_number)})")
-            print(f"  - DB 정답: '{db_answer_stripped}' (타입: {type(db_answer_stripped)}, 길이: {len(db_answer_stripped)})")
-            print(f"  - 문자열 동일성: {user_answer_number == db_answer_stripped}")
-            print(f"  - 바이트 비교: user={user_answer_number.encode()} vs db={db_answer_stripped.encode()}")
-            print(f"  - 최종 결과: {'✅ 정답' if is_correct else '❌ 오답'}")
-            print(f"{'='*80}\n")
+            # 간소화된 로그 (정답일 때만 상세 로그)
+            if is_correct:
+                print(f"[정답 ✅] 문제ID: {question_id}, 사용자: {user_answer_number}번, 정답: {db_answer_stripped}번")
+            else:
+                print(f"[오답 ❌] 문제ID: {question_id}, 사용자: {user_answer_number}번, 정답: {db_answer_stripped}번")
         else:
             # 주관식: 입력값 그대로 비교
             user_answer_value = user_answer.get('answer', '').strip()
             is_correct = user_answer_value == str(question.answer).strip()
 
-            # 디버깅 로그
-            print(f"[정답 확인] 문제ID: {question_id} (주관식)")
-            print(f"  - 사용자 답: {user_answer_value}")
-            print(f"  - 정답: {question.answer}")
-            print(f"  - 결과: {'정답' if is_correct else '오답'}")
+            # 간소화된 로그
+            if is_correct:
+                print(f"[정답 ✅] 문제ID: {question_id} (주관식), 사용자: '{user_answer_value}', 정답: '{question.answer}'")
+            else:
+                print(f"[오답 ❌] 문제ID: {question_id} (주관식), 사용자: '{user_answer_value}', 정답: '{question.answer}'")
 
         # 5. DB에 세션 데이터 저장 및 S3 업로드
         try:
@@ -689,7 +667,28 @@ def verify_solution(request):
                 "error": f"데이터 저장 실패: {str(e)}"
             }, status=500, json_dumps_params={'ensure_ascii': False})
 
-        # 6. OpenAI로 풀이 검증 (선택적 - strokes가 있는 경우만)
+        # 5-1. 오답인 경우 Mathpix/OpenAI 검증 스킵하고 즉시 응답 반환
+        if not is_correct:
+            print(f"[오답] 문제ID: {question_id} - Mathpix/OpenAI 검증 스킵, 즉시 응답 반환")
+            return JsonResponse({
+                "success": True,
+                "data": {
+                    "session_id": str(session_id),
+                    "is_correct": False,
+                    "verification": {
+                        "total_score": 0,
+                        "logic_score": 0,
+                        "accuracy_score": 0,
+                        "process_score": 0,
+                        "is_correct": False,
+                        "comment": "오답입니다.",
+                        "detailed_feedback": ""
+                    },
+                    "s3_url": s3_url
+                }
+            }, json_dumps_params={'ensure_ascii': False})
+
+        # 6. 정답인 경우에만 OpenAI로 풀이 검증 (선택적 - strokes가 있는 경우만)
         verification_result = None
 
         # 화면에 보이는 스트로크만 Mathpix로 전송 (visibleStrokes 우선, 없으면 전체 strokes)
