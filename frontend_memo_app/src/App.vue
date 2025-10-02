@@ -305,14 +305,15 @@ export default {
         // 응답 처리
         if (response.success) {
           const verification = response.data.verification
+          const actualIsCorrect = response.data.is_correct  // 실제 정답 여부 (객관식/주관식 비교 결과)
 
-          // 정답 여부에 따라 메시지 표시
-          if (verification.is_correct) {
+          // 실제 정답 여부에 따라 메시지 표시 (OpenAI 판단과 무관)
+          if (actualIsCorrect) {
             // 정답일 경우: 결과 모달 표시
             correctAnswerData.score = verification.total_score || 0
             correctAnswerData.mathpixText = response.data.mathpix_result || ''
             correctAnswerData.aiVerification = {
-              is_correct: verification.is_correct,
+              is_correct: verification.is_correct,  // OpenAI의 판단 (참고용)
               logic_score: verification.logic_score || 0,
               accuracy_score: verification.accuracy_score || 0,
               process_score: verification.process_score || 0,
