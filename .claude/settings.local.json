@@ -13,7 +13,8 @@
       "Bash(./verify-build.sh:*)",
       "Bash(cat:*)",
       "Bash(grep:*)",
-      "WebFetch(domain:docs.mathpix.com)"
+      "WebFetch(domain:docs.mathpix.com)",
+      "Bash(PGPASSWORD=secret psql -h 127.0.0.1 -U admin -d mydb -c \"SELECT id, answer, choices FROM questions.list WHERE id = 11;\")"
     ],
     "deny": [],
     "ask": []

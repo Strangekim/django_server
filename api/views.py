@@ -622,15 +622,44 @@ def verify_solution(request):
         if user_answer.get('type') == 'multiple_choice':
             # 객관식: selectedIndex를 1부터 시작하는 번호로 변환 (0 -> 1, 1 -> 2, ...)
             # DB의 answer는 "1", "2", "3" 같은 문자열 형태의 번호
-            user_answer_number = str(user_answer.get('selectedIndex', -1) + 1)
+            selected_index = user_answer.get('selectedIndex', -1)
+            user_answer_number = str(selected_index + 1)
             user_answer_value = user_answer.get('selectedValue')  # 실제 보기 값 (로깅용)
-            is_correct = user_answer_number == str(question.answer).strip()
 
-            # 디버깅 로그
-            print(f"[정답 확인] 문제ID: {question_id}")
-            print(f"  - 사용자 선택: {user_answer.get('selectedIndex')}번 보기 (값: {user_answer_value})")
-            print(f"  - 비교: 사용자={user_answer_number} vs 정답={question.answer}")
-            print(f"  - 결과: {'정답' if is_correct else '오답'}")
+            # DB 정답 처리
+            db_answer_raw = question.answer
+            db_answer_stripped = str(db_answer_raw).strip()
+
+            # 정답 비교
+            is_correct = user_answer_number == db_answer_stripped
+
+            # 상세 디버깅 로그
+            print(f"\n{'='*80}")
+            print(f"[정답 확인 상세] 문제ID: {question_id}")
+            print(f"{'='*80}")
+            print(f"📝 문제 정보:")
+            print(f"  - 문제명: {question.name}")
+            print(f"  - 선택지 개수: {len(question.choices)}")
+            print(f"  - 선택지 목록: {question.choices}")
+            print(f"\n👤 사용자 입력:")
+            print(f"  - user_answer 전체: {user_answer}")
+            print(f"  - selectedIndex (0-based): {selected_index}")
+            print(f"  - selectedValue (보기 값): {user_answer_value}")
+            print(f"  - user_answer_number (1-based): '{user_answer_number}'")
+            print(f"\n✅ DB 정답:")
+            print(f"  - question.answer (원본): '{db_answer_raw}'")
+            print(f"  - question.answer (타입): {type(db_answer_raw)}")
+            print(f"  - question.answer (길이): {len(str(db_answer_raw))}")
+            print(f"  - question.answer (repr): {repr(db_answer_raw)}")
+            print(f"  - question.answer (strip 후): '{db_answer_stripped}'")
+            print(f"  - question.answer (strip 후 길이): {len(db_answer_stripped)}")
+            print(f"\n🔍 비교 결과:")
+            print(f"  - 사용자 답: '{user_answer_number}' (타입: {type(user_answer_number)}, 길이: {len(user_answer_number)})")
+            print(f"  - DB 정답: '{db_answer_stripped}' (타입: {type(db_answer_stripped)}, 길이: {len(db_answer_stripped)})")
+            print(f"  - 문자열 동일성: {user_answer_number == db_answer_stripped}")
+            print(f"  - 바이트 비교: user={user_answer_number.encode()} vs db={db_answer_stripped.encode()}")
+            print(f"  - 최종 결과: {'✅ 정답' if is_correct else '❌ 오답'}")
+            print(f"{'='*80}\n")
         else:
             # 주관식: 입력값 그대로 비교
             user_answer_value = user_answer.get('answer', '').strip()
