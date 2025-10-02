@@ -934,6 +934,44 @@ class SolutionVerification(BaseModel):
     detailed_feedback: str
 
 
+def format_description_steps(description):
+    """
+    question.description을 안전하게 포맷팅
+
+    Args:
+        description: 문자열, 리스트, 또는 None
+
+    Returns:
+        str: 포맷된 풀이 단계 문자열
+    """
+    if not description:
+        return "(풀이 단계 정보 없음)"
+
+    # 문자열인 경우 그대로 반환
+    if isinstance(description, str):
+        return description
+
+    # 리스트인 경우 각 항목 처리
+    if isinstance(description, list):
+        steps = []
+        for i, step in enumerate(description):
+            if isinstance(step, dict):
+                # 딕셔너리: step_number와 description 추출
+                step_num = step.get('step_number', i + 1)
+                step_desc = step.get('description', '')
+                steps.append(f"{step_num}단계: {step_desc}")
+            elif isinstance(step, str):
+                # 문자열: 그대로 사용
+                steps.append(f"{i + 1}단계: {step}")
+            else:
+                # 기타: 문자열로 변환
+                steps.append(f"{i + 1}단계: {str(step)}")
+        return '\n'.join(steps)
+
+    # 기타 타입: 문자열로 변환
+    return str(description)
+
+
 def verify_solution_with_openai(question, user_solution):
     """
     OpenAI를 사용하여 사용자의 풀이를 검증
@@ -1007,7 +1045,7 @@ def verify_solution_with_openai(question, user_solution):
 {', '.join(question.choices) if question.choices else '(주관식)'}
 
 [모범 풀이 단계]
-{chr(10).join([f"{step.get('step_number', i+1)}단계: {step.get('description', '')}" for i, step in enumerate(question.description)])}
+{format_description_steps(question.description)}
 
 [학생의 풀이]
 {user_solution}
