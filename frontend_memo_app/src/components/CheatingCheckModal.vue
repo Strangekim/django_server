@@ -73,8 +73,10 @@ export default {
      * @param {number} label - 0: 정상 풀이, 1: 참고자료 사용 (치팅)
      */
     const handleResponse = (label) => {
-      emit('response', label)
+      // 즉시 모달 닫기 (로딩 모달이 바로 보이도록)
       close()
+      // 응답 이벤트 발생
+      emit('response', label)
     }
 
     /**
@@ -117,7 +119,7 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn 0.15s ease;
 }
 
 @keyframes fadeIn {
@@ -137,7 +139,7 @@ export default {
   max-width: 480px;
   width: 90%;
   padding: 0;
-  animation: slideUp 0.3s ease;
+  animation: slideUp 0.2s ease;
 }
 
 @keyframes slideUp {
