@@ -388,12 +388,20 @@ def save_session_to_db_and_s3(question, session_data, user_answer, is_correct, p
 
             # 2-3. StrokePoint 데이터 저장 (bulk_create 사용으로 성능 최적화)
             point_objects = []
+            # 스트로크 시작 시간을 기준점으로 사용
+            stroke_start_ms = int(stroke_data.get('startTime', 0))
+
             for idx, point in enumerate(points):
+                # 포인트의 타임스탬프를 스트로크 시작 기준 상대 시간으로 변환
+                # 프론트엔드에서는 세션 기준 절대 시간을 보내므로, 스트로크 시작 시간을 빼서 상대 시간으로 변환
+                point_timestamp_session = int(point.get('timestamp', 0))
+                point_timestamp_relative = point_timestamp_session - stroke_start_ms
+
                 point_objects.append(StrokePoint(
                     session=session,
                     stroke=stroke,
                     idx=idx,
-                    t_ms=int(point.get('timestamp', 0)),
+                    t_ms=point_timestamp_relative,  # 스트로크 시작 기준 상대 ms
                     x=int(point.get('x', 0)),
                     y=int(point.get('y', 0)),
                     pressure=point.get('pressure'),

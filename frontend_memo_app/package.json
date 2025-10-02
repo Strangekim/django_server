@@ -18,6 +18,7 @@
     "@capacitor/cli": "^7.4.3",
     "@capacitor/core": "^7.4.3",
     "@capacitor/ios": "^7.4.3",
+    "mathjax": "^3.2.2",
     "vue": "^3.4.0"
   },
   "devDependencies": {

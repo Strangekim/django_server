@@ -20,9 +20,9 @@
           <span class="category-tag">{{ problem.category }}</span>
         </div>
 
-        <!-- 문제 텍스트 -->
+        <!-- 문제 텍스트 (MathJax로 수식 렌더링) -->
         <div class="problem-text">
-          {{ problem.problem_text }}
+          <MathContent :content="problem.problem_text" />
         </div>
 
         <!-- 문제 이미지 -->
@@ -48,7 +48,10 @@
               @click="selectChoice(index)"
             >
               <div class="choice-number">{{ getChoiceLabel(index) }}</div>
-              <div class="choice-text">{{ choice }}</div>
+              <!-- 객관식 보기도 MathJax로 렌더링 -->
+              <div class="choice-text">
+                <MathContent :content="choice" />
+              </div>
             </div>
           </div>
         </div>
@@ -107,12 +110,15 @@
 import { ref } from 'vue'
 import DifficultyBadge from './DifficultyBadge.vue'
 import NumericKeyboard from './NumericKeyboard.vue'
+// MathJax 수식 렌더링 컴포넌트 import
+import MathContent from './MathContent.vue'
 
 export default {
   name: 'ProblemArea',
   components: {
     DifficultyBadge,
-    NumericKeyboard
+    NumericKeyboard,
+    MathContent  // MathContent 컴포넌트 등록
   },
   props: {
     problem: {
