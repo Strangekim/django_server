@@ -416,6 +416,7 @@ export default {
       pendingSubmission,
       correctAnswerModalOpen,
       correctAnswerData,
+      isVerifying,
       handleProblemSelect,
       handleAddImageToCanvas,
       handleSubmitAnswer,
