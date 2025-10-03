@@ -47,8 +47,12 @@ class QuestionAdmin(admin.ModelAdmin):
     # 검색 가능한 필드
     search_fields = ['name', 'problem', 'answer']
 
-    # 목록에서 직접 수정 가능한 필드 (is_visible 체크박스 클릭으로 즉시 변경 가능)
-    list_editable = ['is_visible']
+    # 목록에서 직접 수정 가능한 필드
+    # - name: 문제 제목 수정
+    # - difficulty: 난이도 수정
+    # - is_visible: 노출 여부 수정 (체크박스)
+    # 주의: list_display의 첫 번째 필드(id)는 list_editable에 포함할 수 없음
+    list_editable = ['name', 'difficulty', 'is_visible']
 
     # 최신순 정렬
     ordering = ['-created_at']
