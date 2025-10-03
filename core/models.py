@@ -54,6 +54,14 @@ class Question(models.Model):
 
     answer = models.CharField(max_length=50)
 
+    # 프론트엔드 노출 여부 (True: 노출, False: 숨김)
+    # Default: True (모든 문제는 기본적으로 노출됨)
+    # 관리자가 특정 문제를 숨기고 싶을 때 False로 설정
+    is_visible = models.BooleanField(
+        default=True,
+        help_text="프론트엔드에 이 문제를 표시할지 여부"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)            # = DEFAULT now()
     updated_at = models.DateTimeField(auto_now=True)                # = DEFAULT now()
 

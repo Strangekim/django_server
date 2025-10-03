@@ -88,7 +88,11 @@ def get_all_questions(request):
 
         for category in categories:
             # 해당 카테고리에 속한 문제들 조회 (최신순)
-            questions = Question.objects.filter(category=category).order_by('-created_at')
+            # is_visible=True인 문제만 필터링 (프론트엔드에 노출할 문제만)
+            questions = Question.objects.filter(
+                category=category,
+                is_visible=True  # 노출 설정된 문제만 조회
+            ).order_by('-created_at')
 
             # 문제가 없는 카테고리는 제외
             if not questions.exists():
