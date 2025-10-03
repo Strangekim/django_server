@@ -6,6 +6,10 @@
 <script>
 import { ref, onMounted, watch, nextTick } from 'vue'
 
+// 전역 상태: MathJax 로딩 상태 관리
+// 여러 MathContent 컴포넌트가 동시에 렌더링될 때 MathJax 로드를 공유하기 위함
+let mathJaxLoadingPromise = null
+
 export default {
   name: 'MathContent',
   props: {
@@ -47,36 +51,76 @@ export default {
         }
       } else {
         // MathJax가 아직 로드되지 않은 경우
-        console.warn('MathJax가 아직 로드되지 않았습니다.')
-
-        // MathJax 라이브러리 동적 로드
-        loadMathJax()
+        // MathJax 로드를 기다린 후 렌더링
+        await ensureMathJaxLoaded()
+        // 로드 완료 후 다시 렌더링 시도
+        await renderMath()
       }
     }
 
     /**
-     * MathJax 라이브러리를 동적으로 로드하는 함수
-     * CDN에서 MathJax 스크립트를 가져와서 페이지에 추가
+     * MathJax 라이브러리가 로드될 때까지 대기하는 함수
+     * 여러 컴포넌트가 동시에 호출해도 한 번만 로드하고 모두 대기하도록 함
      */
-    const loadMathJax = () => {
-      // 이미 로드 중이거나 로드된 경우 중복 방지
-      if (document.getElementById('mathjax-script')) return
-
-      // script 태그 생성
-      const script = document.createElement('script')
-      script.id = 'mathjax-script'
-      script.async = true
-      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js'
-
-      // MathJax 로드 완료 후 렌더링 실행
-      script.onload = () => {
-        console.log('MathJax 로드 완료')
-        // 로드 후 약간의 지연을 두고 렌더링
-        setTimeout(renderMath, 100)
+    const ensureMathJaxLoaded = async () => {
+      // 이미 로드된 경우 즉시 반환
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        return
       }
 
-      // 스크립트를 문서 head에 추가
-      document.head.appendChild(script)
+      // 다른 컴포넌트가 이미 로드 중인 경우, 해당 Promise를 재사용
+      if (mathJaxLoadingPromise) {
+        console.log('MathJax 로드 대기 중...')
+        await mathJaxLoadingPromise
+        return
+      }
+
+      // 새로운 로드 시작
+      mathJaxLoadingPromise = new Promise((resolve, reject) => {
+        // 이미 스크립트가 추가되어 있는지 확인
+        const existingScript = document.getElementById('mathjax-script')
+
+        if (existingScript) {
+          // 스크립트는 있지만 아직 로드 안된 경우 (로드 중)
+          // 로드 완료를 기다림
+          existingScript.addEventListener('load', () => {
+            console.log('MathJax 로드 완료 (기존 스크립트)')
+            resolve()
+          })
+          existingScript.addEventListener('error', () => {
+            console.error('MathJax 로드 실패 (기존 스크립트)')
+            mathJaxLoadingPromise = null
+            reject(new Error('MathJax 로드 실패'))
+          })
+          return
+        }
+
+        // 새로운 script 태그 생성
+        const script = document.createElement('script')
+        script.id = 'mathjax-script'
+        script.async = true
+        script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js'
+
+        // MathJax 로드 완료 이벤트
+        script.onload = () => {
+          console.log('MathJax 로드 완료 (새 스크립트)')
+          resolve()
+        }
+
+        // MathJax 로드 실패 이벤트
+        script.onerror = () => {
+          console.error('MathJax 로드 실패 (새 스크립트)')
+          mathJaxLoadingPromise = null
+          reject(new Error('MathJax 로드 실패'))
+        }
+
+        // 스크립트를 문서 head에 추가
+        document.head.appendChild(script)
+        console.log('MathJax 로드 시작...')
+      })
+
+      // 로드 대기
+      await mathJaxLoadingPromise
     }
 
     // 컴포넌트가 마운트되면 MathJax 렌더링 시작
