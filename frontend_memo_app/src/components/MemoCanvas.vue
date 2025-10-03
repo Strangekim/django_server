@@ -155,40 +155,8 @@
         </button>
       </div>
 
-      <div class="toolbar-section">
-        <!-- 데이터 수집 상태 -->
-        <div class="data-collection-info">
-          <div class="data-stats">
-            <span class="stat-item">
-              <span class="stat-label">스트로크:</span>
-              <span class="stat-value">{{ sessionData.strokes.length }}</span>
-            </span>
-            <span class="stat-item">
-              <span class="stat-label">이벤트:</span>
-              <span class="stat-value">{{ sessionData.events.length }}</span>
-            </span>
-          </div>
-          <div class="capabilities">
-            <span class="capability" :class="{ active: sessionData.capabilities.pressure }">압력</span>
-            <span class="capability" :class="{ active: sessionData.capabilities.tilt }">기울기</span>
-            <span class="capability" :class="{ active: sessionData.capabilities.twist }">비틀기</span>
-          </div>
-        </div>
-
-        <!-- JSON 다운로드 버튼 -->
-        <button
-          class="action-btn download-btn"
-          @click="downloadSessionData"
-          aria-label="JSON 데이터 다운로드"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <polyline points="7,10 12,15 17,10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <span class="download-text">JSON 다운로드</span>
-        </button>
-      </div>
+      <!-- 데이터 수집 통계 및 JSON 다운로드 섹션 제거됨 (요청사항) -->
+      <!-- 백엔드로 전송되는 JSON 데이터는 그대로 유지됨 -->
     </div>
 
     <!-- 캔버스 영역 -->
@@ -1253,33 +1221,9 @@ export default {
       }
     }
 
-    // JSON 다운로드
-    const downloadSessionData = () => {
-      const data = generateSessionData()
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-
-      // 더 명확한 파일명 생성
-      const now = new Date()
-      const dateStr = now.toISOString().split('T')[0] // YYYY-MM-DD
-      const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-') // HH-MM-SS
-      const shortId = sessionData.value.sessionId.split('-')[0] // 짧은 ID
-
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `math-memo-${dateStr}_${timeStr}_${shortId}.json`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-
-      console.log('JSON 데이터 다운로드 완료:', {
-        fileName: `math-memo-${dateStr}_${timeStr}_${shortId}.json`,
-        strokes: sessionData.value.strokes.length,
-        events: sessionData.value.events.length,
-        capabilities: sessionData.value.capabilities
-      })
-    }
+    // JSON 다운로드 함수 제거됨 (요청사항)
+    // 사용자가 프론트엔드에서 JSON 다운로드를 할 수 없도록 함
+    // 단, 백엔드로 전송되는 데이터는 generateSessionData()를 통해 정상적으로 생성됨
 
     // 도구 설정
     const setTool = (tool) => {
@@ -1799,7 +1743,7 @@ export default {
       zoom,
       redrawCanvas,
       sessionData,
-      downloadSessionData,
+      // downloadSessionData 제거됨 (요청사항 - 사용자가 JSON을 다운로드하지 못하도록)
       generateSessionData,
       getVisibleStrokes,  // 화면에 보이는 스트로크만 반환
       getSubmissionData,  // API 제출용 데이터 (전체 + 가시 스트로크)

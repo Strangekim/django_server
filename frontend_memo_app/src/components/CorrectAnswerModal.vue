@@ -1,11 +1,19 @@
 <template>
   <div v-if="isOpen" class="modal-overlay" @click="handleOverlayClick">
     <div class="modal-container" @click.stop>
-      <!-- 헤더 -->
+      <!-- 헤더 - 문제 제목, 점수, 세션 ID 표시 -->
       <div class="modal-header">
         <div class="success-icon">✓</div>
         <h2 class="modal-title">정답입니다!</h2>
+
+        <!-- 문제 제목 표시 -->
+        <p v-if="problemTitle" class="problem-title">{{ problemTitle }}</p>
+
+        <!-- 점수 표시 -->
         <p class="score-text">{{ score }}점</p>
+
+        <!-- 세션 ID 표시 -->
+        <p v-if="sessionId" class="session-id">세션 ID: {{ sessionId }}</p>
       </div>
 
       <!-- 본문 -->
@@ -52,16 +60,7 @@
           </div>
         </div>
 
-        <!-- 추가 정보 -->
-        <div v-if="additionalInfo" class="result-section">
-          <h3 class="section-title">추가 정보</h3>
-          <div class="result-content info-content">
-            <div v-for="(value, key) in additionalInfo" :key="key" class="info-item">
-              <span class="label">{{ formatKey(key) }}:</span>
-              <span class="value">{{ formatValue(value) }}</span>
-            </div>
-          </div>
-        </div>
+        <!-- 추가 정보 섹션 삭제됨 (요청사항) -->
       </div>
 
       <!-- 하단 버튼 -->
@@ -79,51 +78,48 @@
 export default {
   name: 'CorrectAnswerModal',
   props: {
+    // 모달 열림/닫힘 상태
     isOpen: {
       type: Boolean,
       default: false
     },
+    // 문제 제목 (새로 추가)
+    problemTitle: {
+      type: String,
+      default: ''
+    },
+    // 세션 ID (새로 추가)
+    sessionId: {
+      type: String,
+      default: ''
+    },
+    // 획득 점수
     score: {
       type: Number,
       default: 0
     },
+    // Mathpix 필기 인식 결과
     mathpixText: {
       type: String,
       default: ''
     },
+    // OpenAI 검증 결과
     aiVerification: {
       type: Object,
       default: null
-    },
-    additionalInfo: {
-      type: Object,
-      default: null
     }
+    // additionalInfo prop 삭제됨 (요청사항)
   },
   emits: ['close'],
   methods: {
+    // 모달 닫기 이벤트 발생
     handleClose() {
       this.$emit('close')
     },
+    // 오버레이 클릭 시 처리 (현재는 비활성화)
     handleOverlayClick() {
       // 오버레이 클릭 시 모달 닫기 (선택사항)
       // this.handleClose()
-    },
-    formatKey(key) {
-      // 키 이름을 사람이 읽기 쉽게 변환
-      const keyMap = {
-        total_score: '총점',
-        step_scores: '단계별 점수',
-        reasoning: '추론 과정',
-        confidence: '신뢰도'
-      }
-      return keyMap[key] || key
-    },
-    formatValue(value) {
-      if (typeof value === 'object') {
-        return JSON.stringify(value, null, 2)
-      }
-      return value
     }
   }
 }
@@ -215,15 +211,37 @@ export default {
 .modal-title {
   font-size: 28px;
   font-weight: 700;
-  margin: 0 0 8px 0;
+  margin: 0 0 12px 0;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 문제 제목 스타일 (새로 추가) */
+.problem-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  opacity: 0.9;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
 }
 
 .score-text {
   font-size: 20px;
   font-weight: 600;
-  margin: 0;
+  margin: 0 0 8px 0;
   opacity: 0.95;
+}
+
+/* 세션 ID 스타일 (새로 추가) */
+.session-id {
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0;
+  opacity: 0.8;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.5px;
 }
 
 .modal-body {

@@ -51,13 +51,14 @@
       @cancel="handleCheatingCancel"
     />
 
-    <!-- 정답 결과 모달 -->
+    <!-- 정답 결과 모달 - 문제 제목과 세션 ID 추가 -->
     <CorrectAnswerModal
       :isOpen="correctAnswerModalOpen"
+      :problemTitle="correctAnswerData.problemTitle"
+      :sessionId="correctAnswerData.sessionId"
       :score="correctAnswerData.score"
       :mathpixText="correctAnswerData.mathpixText"
       :aiVerification="correctAnswerData.aiVerification"
-      :additionalInfo="correctAnswerData.additionalInfo"
       @close="handleCorrectAnswerModalClose"
     />
 
@@ -121,10 +122,12 @@ export default {
     // 정답 결과 모달 상태
     const correctAnswerModalOpen = ref(false)
     const correctAnswerData = reactive({
+      problemTitle: '',  // 문제 제목 (새로 추가)
+      sessionId: '',     // 세션 ID (새로 추가)
       score: 0,
       mathpixText: '',
-      aiVerification: null,
-      additionalInfo: null
+      aiVerification: null
+      // additionalInfo 제거됨 (요청사항)
     })
 
     // 로딩 상태
@@ -309,7 +312,9 @@ export default {
 
           // 실제 정답 여부에 따라 메시지 표시 (OpenAI 판단과 무관)
           if (actualIsCorrect) {
-            // 정답일 경우: 결과 모달 표시
+            // 정답일 경우: 결과 모달에 표시할 데이터 구성
+            correctAnswerData.problemTitle = currentProblem.value?.name || '문제'  // 문제 제목
+            correctAnswerData.sessionId = response.data.session_id || ''  // 세션 ID
             correctAnswerData.score = verification.total_score || 0
             correctAnswerData.mathpixText = response.data.mathpix_result || ''
             correctAnswerData.aiVerification = {
@@ -320,10 +325,8 @@ export default {
               comment: verification.comment || '',
               detailed_feedback: verification.detailed_feedback || ''
             }
-            correctAnswerData.additionalInfo = {
-              session_id: response.data.session_id,
-              s3_url: response.data.s3_url
-            }
+            // additionalInfo 제거됨 (요청사항)
+            // s3_url도 모달에 표시하지 않음 (요청사항)
 
             // 모달 열기
             correctAnswerModalOpen.value = true
