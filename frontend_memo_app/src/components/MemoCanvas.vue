@@ -985,8 +985,8 @@ export default {
           tool: currentTool.value,
           color: currentColor.value,
           strokeWidth: currentTool.value === 'eraser' ? eraserSize : strokeWidth.value,
-          points: [eventData],
-          historyIndex: historyStep.value  // 현재 히스토리 단계 저장 (Undo 추적용)
+          points: [eventData]
+          // historyIndex는 스트로크 완료 시점에 설정됨 (stopDrawing 참고)
         }
 
         // 스트로크 시작 이벤트 로깅
@@ -1077,11 +1077,14 @@ export default {
             endY: eventData.y
           })
 
+          // 히스토리 저장 전에 스트로크를 배열에 추가
           sessionData.value.strokes.push(currentStroke)
           currentStroke = null
         }
 
         isDrawing.value = false
+        // saveToHistory()를 호출하여 historyStep 증가
+        // 이제 방금 추가된 스트로크에 올바른 historyIndex 할당
         saveToHistory()
       }
 
@@ -1142,12 +1145,15 @@ export default {
       // 현재 히스토리 단계 이하의 스트로크만 필터링
       // historyIndex가 현재 historyStep 이하인 스트로크만 화면에 보임
       return sessionData.value.strokes.filter(stroke => {
-        // historyIndex가 없는 경우 (레거시 데이터) 모두 포함
+        // historyIndex가 없는 경우: 아직 saveToHistory()가 호출되지 않은 진행 중인 스트로크
+        // 이 경우 보이지 않도록 함 (정상적으로는 발생하지 않아야 함)
         if (stroke.historyIndex === undefined) {
-          return true
+          return false
         }
         // 현재 히스토리 단계 이하인 스트로크만 포함
-        return stroke.historyIndex <= historyStep.value
+        // historyIndex가 0 이상이고 현재 step 이하인 것만 표시
+        // -1은 전체삭제로 무효화된 스트로크이므로 제외됨
+        return stroke.historyIndex >= 0 && stroke.historyIndex <= historyStep.value
       })
     }
 
@@ -1250,13 +1256,28 @@ export default {
      * - 성능 향상: toDataURL() 호출 제거 (동기 작업)
      */
     const saveToHistory = () => {
-      // 현재 단계 이후의 히스토리 제거 (새로운 분기 생성)
-      // history 배열은 더 이상 이미지를 저장하지 않고, 단순히 체크포인트 역할
+      // Redo 분기 처리: 현재 단계 이후의 스트로크 무효화
+      if (historyStep.value < history.value.length - 1) {
+        // Redo 가능한 스트로크들을 제거 (새로운 분기 생성)
+        sessionData.value.strokes = sessionData.value.strokes.filter(
+          stroke => stroke.historyIndex === undefined || stroke.historyIndex <= historyStep.value
+        )
+      }
+
+      // 현재 단계 이후의 히스토리 제거
       history.value = history.value.slice(0, historyStep.value + 1)
 
-      // 빈 마커 추가 (실제 데이터는 sessionData.strokes에 있음)
-      history.value.push(true) // true는 "유효한 히스토리 지점" 표시
+      // 새 히스토리 지점 추가
+      history.value.push(true)
       historyStep.value = history.value.length - 1
+
+      // 방금 추가된 스트로크에 현재 historyStep 할당
+      // historyIndex가 없는 스트로크 = 가장 최근에 추가된 스트로크
+      sessionData.value.strokes.forEach(stroke => {
+        if (stroke.historyIndex === undefined) {
+          stroke.historyIndex = historyStep.value
+        }
+      })
 
       // 히스토리 크기 제한 (오래된 것 삭제)
       if (history.value.length > 50) {
@@ -1264,7 +1285,6 @@ export default {
         historyStep.value--
 
         // 오래된 스트로크도 제거 (메모리 관리)
-        // historyIndex가 0인 스트로크 제거
         sessionData.value.strokes = sessionData.value.strokes.filter(
           stroke => stroke.historyIndex > 0
         )
@@ -1410,22 +1430,25 @@ export default {
     const clearAll = () => {
       if (!ctx || !canvas.value) return
 
-      // 전체 지우기 이벤트 로깅 (스트로크 삭제 전에 로깅)
-      const strokesCleared = sessionData.value.strokes.length
+      // 현재 보이는 스트로크 개수 계산 (로깅용)
+      const visibleStrokeCount = getVisibleStrokes().length
+
       logEvent('clear_all', {
-        strokesCleared
+        strokesCleared: visibleStrokeCount
       })
 
-      // 모든 스트로크를 현재 historyStep 이후로 표시 (삭제 효과)
-      // 실제 삭제하지 않고 historyIndex를 무효화하여 undo/redo 가능하게 함
-      sessionData.value.strokes.forEach(stroke => {
-        stroke.historyIndex = -1  // 현재 step보다 작은 값으로 설정하여 보이지 않게 함
-      })
+      // 현재 보이는 모든 스트로크 제거 (실제 삭제)
+      // undo 이후의 스트로크는 이미 제거되었거나 무효화됨
+      sessionData.value.strokes = sessionData.value.strokes.filter(
+        stroke => stroke.historyIndex === undefined || stroke.historyIndex > historyStep.value
+      )
 
       hasDrawn.value = false
+
+      // 히스토리에 "전체 삭제" 지점 기록
       saveToHistory()
 
-      // 캔버스 다시 그리기 (스트로크가 모두 사라진 상태로)
+      // 캔버스 다시 그리기 (빈 화면)
       redrawCanvas()
     }
 
