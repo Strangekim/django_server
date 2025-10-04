@@ -1065,13 +1065,28 @@ def verify_solution_with_openai(question, user_solution):
 **detailed_feedback**: 각 단계별로 구체적인 피드백 (좋은 점, 실수한 부분, 개선 방법)
 """
 
+    # 객관식일 경우 실제 정답 값 추출 (번호가 아닌 보기 내용)
+    actual_answer = question.answer
+    if question.choices:  # 객관식인 경우
+        try:
+            # answer가 "1", "2", "3" 같은 번호 형태인 경우
+            answer_index = int(str(question.answer).strip()) - 1  # 0-based index
+            if 0 <= answer_index < len(question.choices):
+                actual_answer = question.choices[answer_index]  # 실제 보기 값
+            else:
+                # 인덱스 범위를 벗어나면 원래 answer 사용
+                actual_answer = question.answer
+        except (ValueError, TypeError):
+            # 숫자가 아니면 원래 answer 사용 (이미 실제 값일 수도 있음)
+            actual_answer = question.answer
+
     # 사용자 프롬프트: 문제와 풀이 제공
     user_prompt = f"""
 [문제]
 {question.problem}
 
 [정답]
-{question.answer}
+{actual_answer}
 
 [선택지]
 {', '.join(question.choices) if question.choices else '(주관식)'}

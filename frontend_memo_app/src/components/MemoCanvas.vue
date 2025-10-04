@@ -652,10 +652,12 @@ export default {
     const handlePointerUp = (event) => {
       const inputType = detectInputType(event)
 
-      if (inputType === 'pen' || inputType === 'mouse') {
+      // 펜/마우스 입력이면서 현재 도구가 그리기 도구일 때만 stopDrawing 호출
+      if ((inputType === 'pen' || inputType === 'mouse') &&
+          (currentTool.value === 'pen' || currentTool.value === 'eraser')) {
         stopDrawing(event)
-      } else if (inputType === 'touch') {
-        // 패닝 종료 이벤트 로깅
+      } else if (inputType === 'touch' || currentTool.value === 'hand') {
+        // 터치 또는 손도구: 패닝만 종료
         if (isDragging.value) {
           logEvent('canvas_pan_end', {
             finalPanX: panX.value,
@@ -666,6 +668,13 @@ export default {
 
         isDragging.value = false
         dragTarget.value = null
+
+        // 손도구 사용 중이면 isDrawing 강제 리셋 (안전장치)
+        if (currentTool.value === 'hand' && isDrawing.value) {
+          console.warn('[안전장치] 손도구 사용 중 isDrawing이 true였음 - 강제 리셋')
+          isDrawing.value = false
+          currentStroke = null
+        }
       }
     }
 
@@ -1186,6 +1195,36 @@ export default {
     // 도구 설정
     const setTool = (tool) => {
       const previousTool = currentTool.value
+
+      // 도구 전환 전에 진행 중인 스트로크 정리
+      if (isDrawing.value && previousTool !== tool) {
+        if ((previousTool === 'pen' || previousTool === 'eraser') && tool === 'hand') {
+          // 펜/지우개 → 손도구 전환 시: 현재 스트로크 완료 처리
+          if (currentStroke) {
+            const now = Date.now()
+            currentStroke.endTime = now
+
+            // 스트로크 종료 이벤트 로깅 (도구 전환으로 인한 강제 종료)
+            logEvent('stroke_end', {
+              strokeId: currentStroke.id,
+              tool: currentStroke.tool,
+              duration: now - currentStroke.startTime,
+              pointCount: currentStroke.points.length,
+              reason: 'tool_switch_to_hand'
+            })
+
+            sessionData.value.strokes.push(currentStroke)
+            currentStroke = null
+            isDrawing.value = false
+            saveToHistory()
+          }
+        } else if (previousTool === 'hand' && (tool === 'pen' || tool === 'eraser')) {
+          // 손도구 → 펜/지우개 전환 시: 진행 중인 상태 리셋
+          isDrawing.value = false
+          currentStroke = null
+        }
+      }
+
       currentTool.value = tool
 
       // 도구 변경 이벤트 로깅
