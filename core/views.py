@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.http import HttpResponseBadRequest
+from django.contrib.admin.views.decorators import staff_member_required
 from django.db import transaction, IntegrityError
 import os
 import tempfile
@@ -14,9 +15,10 @@ def health(request):
     return JsonResponse({"status": "ok"})
 
 
+@staff_member_required
 def problem_upload(request):
     """
-    문제 업로드 뷰
+    문제 업로드 뷰 (superuser만 접근 가능)
 
     GET: 업로드 폼 렌더링
     POST: 문제 이미지를 처리하여 DB와 S3에 저장

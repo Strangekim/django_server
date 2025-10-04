@@ -1410,21 +1410,23 @@ export default {
     const clearAll = () => {
       if (!ctx || !canvas.value) return
 
-      // 캔버스 클리어
-      ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
+      // 전체 지우기 이벤트 로깅 (스트로크 삭제 전에 로깅)
+      const strokesCleared = sessionData.value.strokes.length
+      logEvent('clear_all', {
+        strokesCleared
+      })
 
-      // 오버레이 이미지가 있으면 다시 그리기
-      if (overlayImage.value) {
-        drawOverlayImage()
-      }
+      // 모든 스트로크를 현재 historyStep 이후로 표시 (삭제 효과)
+      // 실제 삭제하지 않고 historyIndex를 무효화하여 undo/redo 가능하게 함
+      sessionData.value.strokes.forEach(stroke => {
+        stroke.historyIndex = -1  // 현재 step보다 작은 값으로 설정하여 보이지 않게 함
+      })
 
       hasDrawn.value = false
       saveToHistory()
 
-      // 전체 지우기 이벤트 로깅
-      logEvent('clear_all', {
-        strokesCleared: sessionData.value.strokes.length
-      })
+      // 캔버스 다시 그리기 (스트로크가 모두 사라진 상태로)
+      redrawCanvas()
     }
 
     // 세션 데이터 완전 초기화 (새 문제 선택 시 사용)
