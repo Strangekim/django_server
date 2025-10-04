@@ -239,6 +239,10 @@ export default {
     const dragStart = ref({ x: 0, y: 0 })
     const dragTarget = ref(null) // 'canvas' or 'image'
 
+    // 드래그 성능 최적화를 위한 requestAnimationFrame 관리
+    let rafId = null // requestAnimationFrame ID
+    let pendingPanUpdate = false // 렌더링 대기 중 플래그
+
     // 터치 제스처 상태 (개선된 버전)
     const isTouching = ref(false)
     const touchCount = ref(0)
@@ -379,75 +383,14 @@ export default {
       // 가이드 라인 계산
       calculateGuideLines()
 
-      // 오버레이 이미지가 있으면 다시 그리기
-      if (overlayImage.value) {
-        drawOverlayImage()
-      }
+      // 초기 렌더링 (overlayImage 포함)
+      redrawCanvas()
 
       // 초기 히스토리 저장
       saveToHistory()
     }
 
-    // 오버레이 이미지 그리기 (안정화된 버전)
-    const drawOverlayImage = () => {
-      if (!ctx || !overlayImage.value || !canvas.value) return
-
-      // 캔버스 논리적 크기 사용 (디바이스 회전 대응)
-      const logicalWidth = canvas.value.width / (window.devicePixelRatio || 1)
-      const logicalHeight = canvas.value.height / (window.devicePixelRatio || 1)
-
-      // 이미지 크기가 설정되지 않은 경우 초기 크기 설정
-      if (overlayImageSize.value.width === 0 || overlayImageSize.value.height === 0) {
-        const maxWidth = Math.min(logicalWidth * 0.3, 200)  // 최대 200px
-        const maxHeight = Math.min(logicalHeight * 0.3, 200) // 최대 200px
-
-        let drawWidth = overlayImage.value.naturalWidth || overlayImage.value.width
-        let drawHeight = overlayImage.value.naturalHeight || overlayImage.value.height
-
-        // 크기 조정 (비율 유지)
-        if (drawWidth > maxWidth || drawHeight > maxHeight) {
-          const scale = Math.min(maxWidth / drawWidth, maxHeight / drawHeight)
-          drawWidth = Math.floor(drawWidth * scale)
-          drawHeight = Math.floor(drawHeight * scale)
-        }
-
-        overlayImageSize.value = { width: drawWidth, height: drawHeight }
-      }
-
-      // 안정된 좌표 계산 - 변환 매트릭스와 일치하도록 수정
-      const drawX = overlayImagePosition.value.x
-      const drawY = overlayImagePosition.value.y
-      const drawWidth = overlayImageSize.value.width
-      const drawHeight = overlayImageSize.value.height
-
-      // 경계 체크 (캔버스를 벗어나지 않도록)
-      if (drawX + drawWidth > 0 && drawX < logicalWidth &&
-          drawY + drawHeight > 0 && drawY < logicalHeight) {
-
-        ctx.save()
-        // 변환 매트릭스 적용 (redrawCanvas와 동일)
-        ctx.translate(panX.value, panY.value)
-        ctx.scale(zoom.value, zoom.value)
-
-        // 안티앨리어싱 설정
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = 'high'
-
-        try {
-          ctx.drawImage(
-            overlayImage.value,
-            Math.floor(drawX),
-            Math.floor(drawY),
-            Math.floor(drawWidth),
-            Math.floor(drawHeight)
-          )
-        } catch (error) {
-          console.warn('오버레이 이미지 그리기 실패:', error)
-        }
-
-        ctx.restore()
-      }
-    }
+    // drawOverlayImage 함수 제거됨 - redrawCanvas()에 통합되어 처리됨
 
     // 좌표 계산 (마우스/터치 이벤트) - 줌/패닝 역변환 적용
     const getCoordinates = (event) => {
@@ -1067,17 +1010,26 @@ export default {
       const coords = getCoordinates(event)
       const eventData = extractEventData(event)
 
-      // 드래그 모드 (손도구 또는 손가락) - 캔버스 패닝만
+      // 드래그 모드 (손도구 또는 손가락) - 캔버스 패닝 (성능 최적화)
       if (isDragging.value) {
         const screenCoords = getScreenCoordinates(event)
         const deltaX = screenCoords.x - dragStart.value.x
         const deltaY = screenCoords.y - dragStart.value.y
 
-        // 항상 캔버스 패닝만 수행
+        // pan 값 즉시 업데이트
         panX.value += deltaX
         panY.value += deltaY
-        redrawCanvas()
         dragStart.value = screenCoords
+
+        // requestAnimationFrame을 사용하여 렌더링 최적화
+        // 이미 렌더링이 예약되어 있으면 스킵 (프레임 드롭 방지)
+        if (!pendingPanUpdate) {
+          pendingPanUpdate = true
+          rafId = requestAnimationFrame(() => {
+            redrawCanvas() // 실제 렌더링은 다음 프레임에서 실행
+            pendingPanUpdate = false
+          })
+        }
       } else if (isDrawing.value && ctx && (eventData.inputType === 'pen' || eventData.inputType === 'mouse')) {
         // 펜이나 마우스만 그리기 가능
 
@@ -1281,57 +1233,145 @@ export default {
     }
 
     // 히스토리 저장
+    /**
+     * 히스토리에 현재 상태 저장 (단순화됨)
+     *
+     * [개선 사항]
+     * - 기존: canvas.toDataURL()로 Base64 이미지 저장 (메모리 많이 사용, 느림)
+     * - 개선: historyStep만 증가 (sessionData.strokes에 이미 데이터 있음)
+     *
+     * [동작 원리]
+     * - 각 스트로크는 historyIndex를 가지고 있음 (생성 시점 기록)
+     * - Undo: historyStep 감소 → getVisibleStrokes()가 해당 시점 스트로크만 반환
+     * - Redo: historyStep 증가 → 더 많은 스트로크 표시
+     *
+     * [장점]
+     * - 메모리 효율: Base64 문자열 저장 불필요
+     * - 성능 향상: toDataURL() 호출 제거 (동기 작업)
+     */
     const saveToHistory = () => {
-      if (!ctx || !canvas.value) return
-
-      // 현재 단계 이후의 히스토리 제거
+      // 현재 단계 이후의 히스토리 제거 (새로운 분기 생성)
+      // history 배열은 더 이상 이미지를 저장하지 않고, 단순히 체크포인트 역할
       history.value = history.value.slice(0, historyStep.value + 1)
 
-      // 현재 캔버스 상태를 이미지로 저장
-      const imageData = canvas.value.toDataURL()
-      history.value.push(imageData)
+      // 빈 마커 추가 (실제 데이터는 sessionData.strokes에 있음)
+      history.value.push(true) // true는 "유효한 히스토리 지점" 표시
       historyStep.value = history.value.length - 1
 
-      // 히스토리 크기 제한
+      // 히스토리 크기 제한 (오래된 것 삭제)
       if (history.value.length > 50) {
         history.value.shift()
         historyStep.value--
+
+        // 오래된 스트로크도 제거 (메모리 관리)
+        // historyIndex가 0인 스트로크 제거
+        sessionData.value.strokes = sessionData.value.strokes.filter(
+          stroke => stroke.historyIndex > 0
+        )
+        // 모든 스트로크의 historyIndex를 1씩 감소
+        sessionData.value.strokes.forEach(stroke => {
+          stroke.historyIndex--
+        })
       }
     }
 
+    /**
+     * 캔버스 전체를 다시 그리는 함수 (Stroke 기반 렌더링)
+     *
+     * [개선 사항]
+     * - 기존: history[]에서 Base64 이미지를 복원 (느림, 좌표계 불일치)
+     * - 개선: sessionData.strokes에서 직접 렌더링 (빠름, 좌표계 일치)
+     *
+     * [장점]
+     * 1. 스트로크 사라짐 문제 해결: 논리 좌표만 사용하므로 zoom/pan과 무관
+     * 2. 이미지 출력 문제 해결: overlayImage도 동일한 렌더링 사이클에서 처리
+     * 3. 드래그 끊김 개선: Base64 디코딩 제거로 성능 향상
+     */
     const redrawCanvas = () => {
       if (!ctx || !canvas.value) return
 
-      // 캔버스 전체 클리어
+      // 1. 캔버스 전체 클리어 (변환 매트릭스 무관)
       ctx.save()
       ctx.setTransform(1, 0, 0, 1, 0, 0) // 변환 초기화
       ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
       ctx.restore()
 
-      // 현재 히스토리 단계의 이미지 복원
-      if (historyStep.value >= 0 && history.value[historyStep.value]) {
-        const img = new Image()
-        img.onload = () => {
-          // 줌 및 패닝 적용 - 올바른 변환 순서
-          ctx.save()
-          ctx.translate(panX.value, panY.value)
-          ctx.scale(zoom.value, zoom.value)
+      // 2. 변환 매트릭스 적용 (zoom, pan)
+      ctx.save()
+      ctx.translate(panX.value, panY.value)
+      ctx.scale(zoom.value, zoom.value)
 
-          ctx.drawImage(img, 0, 0)
-          ctx.restore()
+      // 3. 오버레이 이미지 먼저 그리기 (스트로크 아래에 표시)
+      if (overlayImage.value) {
+        try {
+          const drawX = overlayImagePosition.value.x
+          const drawY = overlayImagePosition.value.y
+          const drawWidth = overlayImageSize.value.width
+          const drawHeight = overlayImageSize.value.height
 
-          // 오버레이 이미지 다시 그리기
-          if (overlayImage.value) {
-            drawOverlayImage()
+          // 이미지 크기가 설정되지 않은 경우 자동 계산
+          if (drawWidth === 0 || drawHeight === 0) {
+            const maxSize = 200
+            let imgWidth = overlayImage.value.naturalWidth || overlayImage.value.width
+            let imgHeight = overlayImage.value.naturalHeight || overlayImage.value.height
+
+            if (imgWidth > maxSize || imgHeight > maxSize) {
+              const scale = Math.min(maxSize / imgWidth, maxSize / imgHeight)
+              imgWidth = Math.floor(imgWidth * scale)
+              imgHeight = Math.floor(imgHeight * scale)
+            }
+
+            overlayImageSize.value = { width: imgWidth, height: imgHeight }
           }
-        }
-        img.src = history.value[historyStep.value]
-      } else {
-        // 오버레이 이미지만 그리기
-        if (overlayImage.value) {
-          drawOverlayImage()
+
+          // 안티앨리어싱 설정
+          ctx.imageSmoothingEnabled = true
+          ctx.imageSmoothingQuality = 'high'
+
+          ctx.drawImage(
+            overlayImage.value,
+            Math.floor(drawX),
+            Math.floor(drawY),
+            Math.floor(overlayImageSize.value.width),
+            Math.floor(overlayImageSize.value.height)
+          )
+        } catch (error) {
+          console.warn('오버레이 이미지 그리기 실패:', error)
         }
       }
+
+      // 4. 현재 historyStep 기준으로 유효한 스트로크만 렌더링
+      const visibleStrokes = getVisibleStrokes()
+
+      for (const stroke of visibleStrokes) {
+        // 지우개는 그리지 않음 (이미 지워진 상태)
+        if (stroke.tool === 'eraser') continue
+
+        // 스트로크 시작
+        ctx.beginPath()
+        ctx.strokeStyle = stroke.color
+        ctx.lineWidth = stroke.strokeWidth
+        ctx.lineCap = 'round'
+        ctx.lineJoin = 'round'
+
+        // 스트로크의 모든 포인트 그리기
+        const points = stroke.points
+        if (points.length === 0) continue
+
+        // 첫 포인트로 이동
+        ctx.moveTo(points[0].x, points[0].y)
+
+        // 나머지 포인트들을 연결
+        for (let i = 1; i < points.length; i++) {
+          ctx.lineTo(points[i].x, points[i].y)
+        }
+
+        // 실제 그리기 실행
+        ctx.stroke()
+      }
+
+      // 5. 변환 매트릭스 복원
+      ctx.restore()
     }
 
     // 실행 취소/다시 실행
@@ -1513,7 +1553,13 @@ export default {
       redrawCanvas()
     }
 
-    // 오버레이 이미지 추가 (안정화된 버전)
+    /**
+     * 오버레이 이미지 추가 (개선 버전)
+     *
+     * [개선 사항]
+     * - 이미지 추가 후 redrawCanvas() 호출하여 히스토리 통합
+     * - 이미지가 다른 작업 후에도 유지되도록 보장
+     */
     const addOverlayImage = (imageData) => {
       if (!imageData || !imageData.src) {
         console.warn('잘못된 이미지 데이터:', imageData)
@@ -1533,16 +1579,16 @@ export default {
           overlayImage.value = img
           overlayImageData.value = imageData
 
-          // 안전한 초기 위치 설정
+          // 안전한 초기 위치 설정 (논리 좌표)
           const safeX = Math.max(10, Math.min(100, 20))
           const safeY = Math.max(10, Math.min(100, 20))
 
           overlayImagePosition.value = { x: safeX, y: safeY }
-          overlayImageSize.value = { width: 0, height: 0 } // drawOverlayImage에서 자동 계산
+          overlayImageSize.value = { width: 0, height: 0 } // redrawCanvas에서 자동 계산
 
-          // 이미지 그리기
+          // 전체 캔버스 다시 그리기 (이미지 포함)
           if (ctx && canvas.value) {
-            drawOverlayImage()
+            redrawCanvas() // drawOverlayImage 대신 redrawCanvas 호출
             hasDrawn.value = true
           }
 
