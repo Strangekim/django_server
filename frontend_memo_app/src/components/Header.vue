@@ -13,15 +13,6 @@
           <path d="M3 18H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </button>
-
-      <!-- 현재 선택된 문제 정보 -->
-      <div class="problem-info" v-if="selectedGrade && selectedCategory">
-        <span class="grade-badge">{{ selectedGrade }}</span>
-        <span class="category-text">{{ selectedCategory }}</span>
-      </div>
-      <div class="problem-info" v-else>
-        <span class="placeholder-text">문제를 선택해주세요</span>
-      </div>
     </div>
 
     <div class="header-right">
@@ -33,21 +24,6 @@
         </svg>
         <span class="timer-text">{{ formattedTime }}</span>
       </div>
-
-      <!-- 문제 새로고침 버튼 -->
-      <button
-        class="refresh-btn icon-btn"
-        @click="refreshProblem"
-        :disabled="!selectedGrade || !selectedCategory"
-        aria-label="새 문제 받기"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M21 2V8H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M3 12C3 12 5 10 8 10C12 10 16 14 16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          <path d="M21 12C21 12 19 14 16 14C12 14 8 10 8 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          <path d="M3 22V16H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
     </div>
   </header>
 </template>
@@ -73,6 +49,10 @@ export default {
     timerRunning: {
       type: Boolean,
       default: false
+    },
+    penCapabilities: {
+      type: Object,
+      default: null
     }
   },
   emits: ['update:sidebarOpen'],
@@ -156,9 +136,10 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 0;
-  background: var(--surface-color);
+  height: 48px;
+  background: var(--background-color);
   border-bottom: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   position: relative;
   z-index: 100;
 }
@@ -195,68 +176,28 @@ export default {
   box-shadow: none;
 }
 
-.problem-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 16px 0 8px;
-}
-
-.grade-badge {
-  background: var(--primary-color);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.category-text {
-  color: var(--text-primary);
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.placeholder-text {
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-
-.refresh-btn {
-  color: var(--text-secondary);
-}
-
-.refresh-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.refresh-btn:hover:not(:disabled) {
-  color: var(--primary-color);
-}
 
 .timer-display {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: rgba(217, 119, 6, 0.1);
-  border: 1px solid rgba(217, 119, 6, 0.2);
-  border-radius: 20px;
-  color: var(--primary-color);
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  color: var(--text-primary);
   font-weight: 600;
   font-size: 14px;
-  margin-right: 8px;
+  box-shadow: var(--shadow-sm);
 }
 
 .timer-icon {
-  color: var(--primary-color);
-  opacity: 0.8;
+  color: var(--text-secondary);
 }
 
 .timer-text {
   font-family: 'Courier New', monospace;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
 }
 
 /* 태블릿 가로뷰 중심 반응형 */
@@ -268,18 +209,6 @@ export default {
   .menu-btn {
     padding: 16px 20px;
   }
-
-  .problem-info {
-    padding: 0 20px 0 8px;
-  }
-
-  .category-text {
-    font-size: 15px;
-  }
-
-  .placeholder-text {
-    font-size: 15px;
-  }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
@@ -290,18 +219,6 @@ export default {
   .menu-btn {
     padding: 14px 16px;
   }
-
-  .problem-info {
-    padding: 0 16px 0 8px;
-  }
-
-  .category-text {
-    font-size: 14px;
-  }
-
-  .placeholder-text {
-    font-size: 14px;
-  }
 }
 
 @media (max-width: 767px) {
@@ -311,18 +228,6 @@ export default {
 
   .menu-btn {
     padding: 12px;
-  }
-
-  .problem-info {
-    padding: 0 12px 0 8px;
-  }
-
-  .category-text {
-    font-size: 13px;
-  }
-
-  .placeholder-text {
-    font-size: 13px;
   }
 }
 </style>

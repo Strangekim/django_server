@@ -14,12 +14,13 @@
         :selectedCategory="selectedCategory"
         :selectedQuestion="selectedQuestion"
         :timerRunning="timerRunning"
+        :penCapabilities="penCapabilities"
       />
 
       <!-- 가로뷰 콘텐츠 영역 -->
-      <div class="content-area">
+      <div class="content-area" ref="contentAreaRef">
         <!-- 문제 영역 -->
-        <div class="problem-section">
+        <div class="problem-section" :style="{ flexBasis: problemWidthPercent }">
           <ProblemArea
             ref="problemArea"
             :problem="currentProblem"
@@ -28,16 +29,19 @@
             @openSidebar="sidebarOpen = true"
             @addImageToCanvas="handleAddImageToCanvas"
           />
+
+          <!-- 리사이즈 핸들 -->
+          <ResizeHandle
+            :isResizing="isResizing"
+            @resize-start="handleResizeStart"
+          />
         </div>
 
-        <!-- 메모 및 정답 영역 -->
-        <div class="memo-section">
+        <!-- 메모 영역 -->
+        <div class="memo-section" :style="{ flexBasis: memoWidthPercent }">
           <!-- 메모 캔버스 -->
-          <MemoCanvas ref="memoCanvas" />
-
-          <!-- 정답란 -->
-          <AnswerArea
-            ref="answerArea"
+          <MemoCanvas
+            ref="memoCanvas"
             @submitAnswer="handleSubmitAnswer"
           />
         </div>
@@ -68,20 +72,36 @@
       title="답안 검증 중..."
       message="AI가 풀이를 분석하고 있습니다."
     />
+
+    <!-- 토스트 메시지 -->
+    <Toast
+      :messages="toastMessages"
+      :type="toastType"
+      :duration="3000"
+    />
   </div>
 </template>
 
 <script>
-import { ref, reactive } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import Header from './components/Header.vue'
 import ProblemArea from './components/ProblemArea.vue'
 import MemoCanvas from './components/MemoCanvas.vue'
-import AnswerArea from './components/AnswerArea.vue'
 import CheatingCheckModal from './components/CheatingCheckModal.vue'
 import CorrectAnswerModal from './components/CorrectAnswerModal.vue'
 import LoadingModal from './components/LoadingModal.vue'
-import { apiGet, apiPost, API_ENDPOINTS } from './api/config.js'
+import ResizeHandle from './components/ResizeHandle.vue'
+import Toast from './components/Toast.vue'
+import { apiPost, API_ENDPOINTS } from './api/config.js'
+
+// Pinia stores
+import { useProblemStore } from './stores/problemStore.js'
+import { useSessionStore } from './stores/sessionStore.js'
+import { useUIStore } from './stores/uiStore.js'
+
+// Composables
+import { useResizer } from './composables/useResizer.js'
 
 export default {
   name: 'App',
@@ -90,90 +110,58 @@ export default {
     Header,
     ProblemArea,
     MemoCanvas,
-    AnswerArea,
     LoadingModal,
     CheatingCheckModal,
-    CorrectAnswerModal
+    CorrectAnswerModal,
+    ResizeHandle,
+    Toast
   },
   setup() {
-    // 사이드바 상태
-    const sidebarOpen = ref(false)
-
-    // 선택된 문제 정보
-    const selectedCategory = ref('')
-    const selectedQuestion = ref('')
-    const currentProblem = ref(null)
+    // Pinia stores 사용
+    const problemStore = useProblemStore()
+    const sessionStore = useSessionStore()
+    const uiStore = useUIStore()
 
     // 컴포넌트 참조
     const memoCanvas = ref(null)
     const problemArea = ref(null)
-    const answerArea = ref(null)
     const cheatingModal = ref(null)
+    const contentAreaRef = ref(null)
 
-    // 타이머 상태
-    const timerRunning = ref(false)
+    // 토스트 상태
+    const toastMessages = ref([])
+    const toastType = ref('info')
 
-    // 로딩 상태
-    const loadingProblem = ref(false)
+    // Resizer composable
+    const {
+      isResizing,
+      problemWidth,
+      problemWidthPercent,
+      memoWidthPercent,
+      startResize
+    } = useResizer()
 
-    // 제출 대기 중인 데이터 (치팅 확인 후 사용)
-    const pendingSubmission = ref(null)
-
-    // 정답 결과 모달 상태
-    const correctAnswerModalOpen = ref(false)
-    const correctAnswerData = reactive({
-      problemTitle: '',  // 문제 제목 (새로 추가)
-      sessionId: '',     // 세션 ID (새로 추가)
-      score: 0,
-      mathpixText: '',
-      aiVerification: null
-      // additionalInfo 제거됨 (요청사항)
-    })
-
-    // 로딩 상태
-    const isVerifying = ref(false)
-
-    // API에서 문제 상세 정보 불러오기
-    const fetchProblemDetail = async (questionId) => {
-      loadingProblem.value = true
-
-      try {
-        const response = await apiGet(API_ENDPOINTS.QUESTION_DETAIL(questionId))
-
-        if (response.success) {
-          const data = response.data
-
-          // API 응답을 ProblemArea가 기대하는 형식으로 변환
-          currentProblem.value = {
-            id: data.id,
-            name: data.name,
-            category: data.category.name,
-            categoryId: data.category.id,
-            difficulty: data.difficulty,
-            difficulty_1_to_100: data.difficulty, // ProblemArea에서 사용
-            problem_text: data.problem,
-            choices: data.choices,
-            description: data.description,
-            image: data.separate_img,
-            image_alt: `${data.name} 문제 이미지`
-          }
-
-          console.log('문제 상세 정보 로드 완료:', data.name)
-        } else {
-          throw new Error('API 응답 실패')
-        }
-      } catch (error) {
-        console.error('문제 상세 정보 로드 실패:', error)
-        alert('문제를 불러오는데 실패했습니다.')
-      } finally {
-        loadingProblem.value = false
+    // Computed - stores에서 가져오기
+    const sidebarOpen = computed({
+      get: () => uiStore.sidebarOpen,
+      set: (value) => {
+        if (value) uiStore.openSidebar()
+        else uiStore.closeSidebar()
       }
-    }
+    })
+    const selectedCategory = computed(() => problemStore.selectedCategory)
+    const selectedQuestion = computed(() => problemStore.selectedQuestion)
+    const currentProblem = computed(() => problemStore.currentProblem)
+    const timerRunning = computed(() => sessionStore.timerRunning)
+    const penCapabilities = computed(() => sessionStore.penCapabilities)
+    const correctAnswerModalOpen = computed(() => uiStore.correctAnswerModalOpen)
+    const correctAnswerData = computed(() => sessionStore.correctAnswerData)
+    const isVerifying = computed(() => uiStore.isVerifying)
 
     // 문제 선택 핸들러
     const handleProblemSelect = async (problemData) => {
       // 이미 문제가 선택되어 있고, 다른 문제를 선택하는 경우
-      if (currentProblem.value && currentProblem.value.id !== problemData.questionId) {
+      if (problemStore.currentProblem && problemStore.currentProblem.id !== problemData.questionId) {
         // 사용자 확인 alert
         const confirmed = window.confirm(
           '새로운 문제를 선택하면 현재 작성 중인 내용이 모두 삭제됩니다.\n계속하시겠습니까?'
@@ -188,40 +176,32 @@ export default {
         resetSession()
       }
 
-      selectedCategory.value = problemData.categoryName
-      selectedQuestion.value = problemData.questionName
+      // Store에 문제 선택 정보 저장
+      problemStore.selectProblem(problemData)
 
       // API에서 문제 상세 정보 불러오기
-      await fetchProblemDetail(problemData.questionId)
+      await problemStore.fetchProblemDetail(problemData.questionId)
 
-      sidebarOpen.value = false // 문제 선택 후 사이드바 닫기
+      // 사이드바 닫기
+      uiStore.closeSidebar()
 
       // 타이머 시작
-      timerRunning.value = true
+      sessionStore.startTimer()
 
-      console.log('문제 선택됨:', problemData)
+      console.log('[App] 문제 선택됨:', problemData)
     }
 
     // 세션 초기화 함수
     const resetSession = () => {
-      // 1. 타이머 중지 및 초기화 (다음 문제 선택 시 다시 시작됨)
-      timerRunning.value = false
+      // 1. Store의 세션 초기화
+      sessionStore.resetSession()
 
       // 2. MemoCanvas의 세션 데이터 완전 초기화
-      // - 캔버스 클리어
-      // - strokes, events, statistics 모두 초기화
-      // - 새로운 sessionId 생성
-      // - 히스토리 초기화
-      // - 오버레이 이미지 제거
-      // - 줌/팬 초기화
       if (memoCanvas.value && memoCanvas.value.resetSessionData) {
         memoCanvas.value.resetSessionData()
       }
 
-      // 3. ProblemArea의 답안 초기화는 새 문제 로드 시 자동으로 리셋됨
-      // (selectedChoice와 subjectiveAnswer는 내부 ref이므로 새 문제가 로드되면 초기 상태가 됨)
-
-      console.log('세션 초기화 완료')
+      console.log('[App] 세션 초기화 완료')
     }
 
     // 이미지를 메모 캔버스에 추가하는 핸들러
@@ -231,33 +211,44 @@ export default {
       }
     }
 
+    // 토스트 표시 함수
+    const showToast = (messages, type = 'info') => {
+      toastMessages.value = Array.isArray(messages) ? messages : [messages]
+      toastType.value = type
+
+      // 3초 후 자동으로 메시지 제거
+      setTimeout(() => {
+        toastMessages.value = []
+      }, 3000)
+    }
+
     // 정답 제출 핸들러 (1단계: 데이터 검증 후 치팅 확인 모달 열기)
     const handleSubmitAnswer = async () => {
       // 1. 문제가 선택되지 않았으면 경고
-      if (!currentProblem.value) {
-        answerArea.value?.setSubmissionStatus('error', '문제를 먼저 선택해주세요.')
+      if (!problemStore.currentProblem) {
+        showToast(['문제를 먼저 선택해주세요'], 'error')
         return
       }
 
       // 2. 사용자 답안 가져오기
       const userAnswer = problemArea.value?.getUserAnswer()
       if (!userAnswer) {
-        answerArea.value?.setSubmissionStatus('error', '답안을 입력해주세요.')
+        showToast(['메모 영역의 정답 상자에 답안을 작성하고 제출하세요'], 'info')
         return
       }
 
       // 3. 세션 데이터 가져오기 (전체 필기 기록 + 화면에 보이는 스트로크)
       const sessionData = memoCanvas.value?.getSubmissionData()
       if (!sessionData) {
-        answerArea.value?.setSubmissionStatus('error', '세션 데이터를 가져올 수 없습니다.')
+        showToast(['세션 데이터를 가져올 수 없습니다'], 'error')
         return
       }
 
-      // 4. 제출 데이터를 임시 저장
-      pendingSubmission.value = {
+      // 4. 제출 데이터를 Store에 임시 저장
+      sessionStore.setPendingSubmission({
         userAnswer,
         sessionData
-      }
+      })
 
       // 5. 치팅 여부 확인 모달 열기
       cheatingModal.value?.open()
@@ -268,39 +259,31 @@ export default {
      * @param {number} label - 0: 정상 풀이, 1: 참고자료 사용 (치팅)
      */
     const handleCheatingResponse = async (label) => {
-      // 대기 중인 제출 데이터가 없으면 무시
-      if (!pendingSubmission.value) {
-        console.error('제출 데이터가 없습니다.')
+      // Store에서 대기 중인 제출 데이터 가져오기
+      if (!sessionStore.pendingSubmission) {
+        console.error('[App] 제출 데이터가 없습니다.')
         return
       }
 
-      const { userAnswer, sessionData } = pendingSubmission.value
+      const { userAnswer, sessionData } = sessionStore.pendingSubmission
 
-      // 로딩 모달 시작 (치팅 확인 후 실제 검증 시작)
-      isVerifying.value = true
-      answerArea.value?.setSubmissionStatus('info', 'AI가 답안을 검증하는 중입니다...')
+      // 로딩 시작
+      uiStore.startVerification()
 
       try {
         // API 요청 데이터 구성
         const requestData = {
-          // 문제 메타데이터
-          question_id: currentProblem.value.id,
-          problem_name: currentProblem.value.name,
-          category_id: currentProblem.value.categoryId,
-          category_name: currentProblem.value.category,
-          difficulty: currentProblem.value.difficulty,
-
-          // 사용자 답안
+          question_id: problemStore.currentProblem.id,
+          problem_name: problemStore.currentProblem.name,
+          category_id: problemStore.currentProblem.categoryId,
+          category_name: problemStore.currentProblem.category,
+          difficulty: problemStore.currentProblem.difficulty,
           user_answer: userAnswer,
-
-          // 전체 세션 데이터 (필기 기록, 이벤트, 통계 등)
           session_data: sessionData,
-
-          // 치팅 여부 라벨 (0: 정상, 1: 치팅)
           label: label
         }
 
-        console.log('제출 데이터:', requestData)
+        console.log('[App] 제출 데이터:', requestData)
 
         // API 호출
         const response = await apiPost(API_ENDPOINTS.VERIFY_SOLUTION, requestData)
@@ -308,53 +291,40 @@ export default {
         // 응답 처리
         if (response.success) {
           const verification = response.data.verification
-          const actualIsCorrect = response.data.is_correct  // 실제 정답 여부 (객관식/주관식 비교 결과)
+          const actualIsCorrect = response.data.is_correct
 
-          // 실제 정답 여부에 따라 메시지 표시 (OpenAI 판단과 무관)
           if (actualIsCorrect) {
-            // 정답일 경우: 결과 모달에 표시할 데이터 구성
-            correctAnswerData.problemTitle = currentProblem.value?.name || '문제'  // 문제 제목
-            correctAnswerData.sessionId = response.data.session_id || ''  // 세션 ID
-            correctAnswerData.score = verification.total_score || 0
-            correctAnswerData.mathpixText = response.data.mathpix_result || ''
-            correctAnswerData.aiVerification = {
-              is_correct: verification.is_correct,  // OpenAI의 판단 (참고용)
-              logic_score: verification.logic_score || 0,
-              accuracy_score: verification.accuracy_score || 0,
-              process_score: verification.process_score || 0,
-              comment: verification.comment || '',
-              detailed_feedback: verification.detailed_feedback || ''
-            }
-            // additionalInfo 제거됨 (요청사항)
-            // s3_url도 모달에 표시하지 않음 (요청사항)
+            // 정답일 경우: Store에 정답 결과 저장
+            sessionStore.setCorrectAnswerData({
+              problemTitle: problemStore.currentProblem?.name || '문제',
+              sessionId: response.data.session_id || '',
+              score: verification.total_score || 0,
+              mathpixText: response.data.mathpix_result || '',
+              aiVerification: {
+                is_correct: verification.is_correct,
+                logic_score: verification.logic_score || 0,
+                accuracy_score: verification.accuracy_score || 0,
+                process_score: verification.process_score || 0,
+                comment: verification.comment || '',
+                detailed_feedback: verification.detailed_feedback || ''
+              }
+            })
 
             // 모달 열기
-            correctAnswerModalOpen.value = true
-
-            // AnswerArea에도 성공 메시지 표시 (모달 닫을 때까지 유지)
-            answerArea.value?.setSubmissionStatus(
-              'success',
-              `정답입니다! (${verification.total_score}점)`
-            )
+            uiStore.showCorrectAnswerModal()
           } else {
-            // 오답일 경우: 기존대로 상세 결과 표시
-            answerArea.value?.setSubmissionStatus(
-              'error',
-              `오답입니다. (${verification.total_score}점)`
-            )
-            answerArea.value?.showVerificationResult(response.data)
+            // 오답일 경우 - 토스트 메시지 표시
+            showToast([`오답입니다. (${verification.total_score}점)`], 'error')
           }
 
-          console.log('검증 완료:', response.data)
+          console.log('[App] 검증 완료:', response.data)
         } else {
           throw new Error(response.error || 'API 응답 실패')
         }
       } catch (error) {
-        console.error('제출 실패:', error)
+        console.error('[App] 제출 실패:', error)
 
-        // 에러 메시지 상세화
         let errorMessage = '제출 실패'
-
         if (error.message.includes('500')) {
           errorMessage = '서버 오류가 발생했습니다. 관리자에게 문의해주세요.'
         } else if (error.message.includes('404')) {
@@ -367,12 +337,10 @@ export default {
           errorMessage = `제출 실패: ${error.message}`
         }
 
-        answerArea.value?.setSubmissionStatus('error', errorMessage)
-      } finally {
-        // 로딩 종료
-        isVerifying.value = false
-        // 제출 완료 후 임시 데이터 초기화
-        pendingSubmission.value = null
+        showToast([errorMessage], 'error')
+      } finally{
+        uiStore.stopVerification()
+        sessionStore.clearPendingSubmission()
       }
     }
 
@@ -380,25 +348,43 @@ export default {
      * 치팅 확인 취소 처리
      */
     const handleCheatingCancel = () => {
-      // 임시 저장된 제출 데이터 삭제
-      pendingSubmission.value = null
-
-      // 사용자에게 취소 메시지 표시
-      answerArea.value?.setSubmissionStatus('info', '제출이 취소되었습니다.')
-
-      console.log('제출 취소됨')
+      sessionStore.clearPendingSubmission()
+      showToast(['제출이 취소되었습니다'], 'info')
+      console.log('[App] 제출 취소됨')
     }
 
     /**
      * 정답 결과 모달 닫기 처리 (다음 문제로 이동)
      */
     const handleCorrectAnswerModalClose = () => {
-      // 모달 닫기
-      correctAnswerModalOpen.value = false
-
-      // 페이지 새로고침으로 완전히 초기화 (모든 상태와 캔버스 리셋)
+      uiStore.hideCorrectAnswerModal()
       window.location.reload()
     }
+
+    /**
+     * 리사이즈 핸들 드래그 시작
+     */
+    const handleResizeStart = (event) => {
+      if (contentAreaRef.value) {
+        startResize(event, contentAreaRef.value)
+      }
+    }
+
+    /**
+     * MemoCanvas가 마운트된 후 펜 능력 정보 가져오기
+     */
+    const updatePenCapabilities = () => {
+      if (memoCanvas.value && memoCanvas.value.sessionData) {
+        sessionStore.updatePenCapabilities(memoCanvas.value.sessionData.capabilities)
+      }
+    }
+
+    // 컴포넌트 마운트 후 펜 능력 추적 시작
+    onMounted(() => {
+      updatePenCapabilities()
+      const intervalId = setInterval(updatePenCapabilities, 1000)
+      return () => clearInterval(intervalId)
+    })
 
     return {
       sidebarOpen,
@@ -407,20 +393,25 @@ export default {
       currentProblem,
       memoCanvas,
       problemArea,
-      answerArea,
       cheatingModal,
+      contentAreaRef,
       timerRunning,
-      loadingProblem,
-      pendingSubmission,
+      penCapabilities,
       correctAnswerModalOpen,
       correctAnswerData,
       isVerifying,
+      isResizing,
+      problemWidthPercent,
+      memoWidthPercent,
+      toastMessages,
+      toastType,
       handleProblemSelect,
       handleAddImageToCanvas,
       handleSubmitAnswer,
       handleCheatingResponse,
       handleCheatingCancel,
-      handleCorrectAnswerModalClose
+      handleCorrectAnswerModalClose,
+      handleResizeStart
     }
   }
 }
@@ -451,11 +442,15 @@ export default {
 }
 
 .problem-section {
-  flex: none;
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .memo-section {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -477,15 +472,15 @@ export default {
   }
 
   .problem-section {
-    flex: 3;
+    flex: 0 0 auto;
     display: flex;
     flex-direction: column;
     min-width: 0;
-    border-right: 1px solid var(--border-color);
+    border-right: none;
   }
 
   .memo-section {
-    flex: 7;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     min-width: 0;

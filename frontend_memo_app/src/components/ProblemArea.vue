@@ -77,23 +77,8 @@
         </div>
       </div>
 
-      <!-- 문제가 선택되지 않았을 때 -->
-      <div v-else class="problem-placeholder">
-        <div class="placeholder-content">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2"/>
-          </svg>
-          <h3>문제를 선택해주세요</h3>
-          <p>왼쪽 메뉴에서 학년과 카테고리를 선택하여<br>문제를 불러올 수 있습니다.</p>
-          <button
-            class="select-problem-btn btn btn-primary"
-            @click="openSidebar"
-          >
-            문제 선택하기
-          </button>
-        </div>
-      </div>
+      <!-- 문제가 선택되지 않았을 때는 빈 영역 -->
+      <div v-else class="problem-placeholder"></div>
     </div>
 
     <!-- 가상 키보드 -->
@@ -529,42 +514,7 @@ export default {
 }
 
 .problem-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   height: 100%;
-  padding: 40px 20px;
-}
-
-.placeholder-content {
-  text-align: center;
-  max-width: 400px;
-}
-
-.placeholder-content svg {
-  color: var(--text-secondary);
-  margin-bottom: 16px;
-  opacity: 0.6;
-}
-
-.placeholder-content h3 {
-  color: var(--text-primary);
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.placeholder-content p {
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 24px;
-}
-
-.select-problem-btn {
-  padding: 12px 24px;
-  font-size: 14px;
-  font-weight: 600;
 }
 
 /* 태블릿 가로뷰 중심 반응형 */
@@ -606,19 +556,6 @@ export default {
   .choice-text {
     font-size: 14px;
   }
-
-  .placeholder-content h3 {
-    font-size: 18px;
-  }
-
-  .placeholder-content p {
-    font-size: 14px;
-  }
-
-  .select-problem-btn {
-    padding: 10px 20px;
-    font-size: 14px;
-  }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
@@ -647,19 +584,6 @@ export default {
 
   .choice-text {
     font-size: 15px;
-  }
-
-  .placeholder-content h3 {
-    font-size: 20px;
-  }
-
-  .placeholder-content p {
-    font-size: 14px;
-  }
-
-  .select-problem-btn {
-    padding: 12px 24px;
-    font-size: 14px;
   }
 }
 
@@ -695,23 +619,6 @@ export default {
 
   .choice-text {
     font-size: 14px;
-  }
-
-  .placeholder-content {
-    padding: 16px;
-  }
-
-  .placeholder-content h3 {
-    font-size: 18px;
-  }
-
-  .placeholder-content p {
-    font-size: 13px;
-  }
-
-  .select-problem-btn {
-    padding: 10px 20px;
-    font-size: 13px;
   }
 }
 
