@@ -437,7 +437,7 @@ export default {
 .content-area {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   overflow: hidden;
 }
 
@@ -502,6 +502,14 @@ export default {
   .app {
     height: 100vh;
     overflow: hidden;
+  }
+
+  .content-area {
+    flex-direction: column;
+  }
+
+  .problem-section {
+    max-height: 40vh;
   }
 }
 </style>

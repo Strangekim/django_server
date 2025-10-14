@@ -226,8 +226,10 @@ onMounted(() => {
   const canvas = canvasRef.value
   ctx.value = canvas.getContext('2d', { willReadFrequently: true })
 
-  // 캔버스 크기 설정
-  resizeCanvas()
+  // 캔버스 크기 설정 (nextTick으로 DOM 렌더링 후 실행)
+  setTimeout(() => {
+    resizeCanvas()
+  }, 0)
 
   // 윈도우 리사이즈 이벤트
   window.addEventListener('resize', resizeCanvas)
@@ -251,8 +253,13 @@ function resizeCanvas() {
   if (!canvas) return
 
   const container = canvas.parentElement
-  canvas.width = container.clientWidth
-  canvas.height = container.clientHeight
+
+  // clientWidth/Height가 0이면 fallback 사용
+  const width = container.clientWidth || window.innerWidth * 0.5
+  const height = container.clientHeight || Math.max(window.innerHeight - 100, 400)
+
+  canvas.width = width
+  canvas.height = height
 
   render()
 }
