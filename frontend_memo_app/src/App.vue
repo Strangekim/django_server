@@ -454,6 +454,7 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 400px;
 }
 
 /* 태블릿 가로뷰 중심 최적화 */

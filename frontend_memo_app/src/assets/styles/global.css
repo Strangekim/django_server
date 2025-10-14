@@ -1,19 +1,19 @@
-/* 전역 스타일 설정 - 따뜻한 톤 */
+/* 전역 스타일 설정 - 모노톤 (검정/흰색) */
 :root {
-  --primary-color: #d97706;
-  --secondary-color: #a3a3a3;
-  --background-color: #fef7ed;
-  --surface-color: #fffbf5;
-  --border-color: #fed7aa;
-  --text-primary: #451a03;
-  --text-secondary: #a16207;
-  --accent-color: #ea580c;
-  --success-color: #059669;
-  --warning-color: #d97706;
-  --error-color: #dc2626;
-  --shadow-sm: 0 1px 2px 0 rgb(234 88 12 / 0.06);
-  --shadow-md: 0 4px 6px -1px rgb(234 88 12 / 0.08), 0 2px 4px -2px rgb(234 88 12 / 0.06);
-  --shadow-lg: 0 10px 15px -3px rgb(234 88 12 / 0.08), 0 4px 6px -4px rgb(234 88 12 / 0.06);
+  --primary-color: #2563eb;
+  --secondary-color: #64748b;
+  --background-color: #f8fafc;
+  --surface-color: #ffffff;
+  --border-color: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --accent-color: #3b82f6;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 
   /* 태블릿 뷰 최적화 */
   --tablet-landscape: 1024px;

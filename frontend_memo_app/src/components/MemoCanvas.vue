@@ -744,7 +744,7 @@ defineExpose({
   position: absolute;
   bottom: 12px;
   right: 12px;
-  background: linear-gradient(135deg, #d97706, #ea580c);
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
   color: white;
   border: none;
   border-radius: 8px;
@@ -755,7 +755,7 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 2px 12px rgba(217, 119, 6, 0.3);
+  box-shadow: 0 2px 12px rgba(37, 99, 235, 0.3);
   transition: all 0.3s ease;
   z-index: 1001;
 }
@@ -767,8 +767,8 @@ defineExpose({
 
 .submit-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 30px rgba(217, 119, 6, 0.4);
-  background: linear-gradient(135deg, #ea580c, #c2410c);
+  box-shadow: 0 6px 30px rgba(37, 99, 235, 0.4);
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
 }
 
 .submit-button:active {
