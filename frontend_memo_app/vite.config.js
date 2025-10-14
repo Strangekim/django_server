@@ -18,7 +18,15 @@ export default defineConfig(({ mode }) => {
       assetsDir: 'assets',
       emptyOutDir: true,
       // 빌드 시 소스맵 생성 (프로덕션에서는 false 권장)
-      sourcemap: mode === 'development'
+      sourcemap: mode === 'development',
+      // Pinia와 stores가 제대로 번들링되도록 설정
+      commonjsOptions: {
+        include: [/node_modules/],
+        transformMixedEsModules: true
+      }
+    },
+    optimizeDeps: {
+      include: ['pinia']
     }
   }
 })
