@@ -1,4 +1,5 @@
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
 import App from './App.vue'
 import './assets/styles/global.css'
 
@@ -24,4 +25,8 @@ window.MathJax = {
 }
 
 // Vue 앱 생성 및 마운트
-createApp(App).mount('#app')
+const app = createApp(App)
+const pinia = createPinia()
+
+app.use(pinia)
+app.mount('#app')
