@@ -19,6 +19,7 @@
     "@capacitor/core": "^7.4.3",
     "@capacitor/ios": "^7.4.3",
     "mathjax": "^3.2.2",
+    "pinia": "^2.1.7",
     "vue": "^3.4.0"
   },
   "devDependencies": {
