@@ -153,6 +153,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, defineExpose, defineEmits } from 'vue'
+import { generateUUID } from '../utils/uuid'
 
 // Emit 정의
 const emit = defineEmits(['submitAnswer'])
@@ -186,7 +187,7 @@ const historyIndex = ref(-1)
 
 // 세션 정보
 const sessionStartTime = ref(Date.now())
-const sessionId = ref(crypto.randomUUID())
+const sessionId = ref(generateUUID())
 
 // Computed
 const canUndo = computed(() => historyIndex.value > 0)
@@ -344,7 +345,7 @@ function handlePointerDown(event) {
 
   const point = getCoordinates(event)
   currentStroke.value = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     tool: currentTool.value,
     color: currentColor.value,
     strokeWidth: strokeWidth.value,
