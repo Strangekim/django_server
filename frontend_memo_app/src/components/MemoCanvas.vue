@@ -345,6 +345,7 @@ function getCoordinates(event) {
 function handlePointerDown(event) {
   // 터치 입력은 스크롤 전용으로 사용 (펜만 그리기 허용)
   if (event.pointerType === 'touch') {
+    event.preventDefault()
     // 터치 스크롤 시작
     touchStartY.value = event.clientY
     lastTouchY.value = event.clientY
@@ -415,6 +416,7 @@ function handlePointerMove(event) {
 function handlePointerUp(event) {
   // 터치 스크롤 종료
   if (event.pointerType === 'touch') {
+    event.preventDefault()
     touchStartY.value = null
     lastTouchY.value = null
     return
@@ -710,7 +712,7 @@ defineExpose({
   width: 100%;
   height: 100%;
   cursor: crosshair;
-  touch-action: pan-y;
+  touch-action: none;
   z-index: 1;
 }
 
