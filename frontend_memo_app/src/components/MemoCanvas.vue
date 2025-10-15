@@ -181,6 +181,10 @@ const currentStroke = ref(null)
 const scrollY = ref(0)
 const canvasHeight = ref(5000) // 가상 캔버스 높이 (스크롤 가능 영역) - 증가
 
+// 터치 스크롤 상태
+const touchStartY = ref(null)
+const lastTouchY = ref(null)
+
 // 히스토리
 const history = ref([])
 const historyIndex = ref(-1)
@@ -339,6 +343,15 @@ function getCoordinates(event) {
 // ============================================
 
 function handlePointerDown(event) {
+  // 터치 입력은 스크롤 전용으로 사용 (펜만 그리기 허용)
+  if (event.pointerType === 'touch') {
+    // 터치 스크롤 시작
+    touchStartY.value = event.clientY
+    lastTouchY.value = event.clientY
+    return
+  }
+
+  // 펜/마우스만 그리기 시작
   event.preventDefault()
 
   isDrawing.value = true
@@ -366,6 +379,23 @@ function handlePointerDown(event) {
 }
 
 function handlePointerMove(event) {
+  // 터치 스크롤 처리
+  if (event.pointerType === 'touch' && touchStartY.value !== null) {
+    event.preventDefault()
+    const deltaY = lastTouchY.value - event.clientY
+    scrollY.value += deltaY
+
+    // 스크롤 범위 제한
+    const canvas = canvasRef.value
+    const maxScroll = canvasHeight.value - canvas.height
+    scrollY.value = Math.max(0, Math.min(scrollY.value, maxScroll))
+
+    lastTouchY.value = event.clientY
+    render()
+    return
+  }
+
+  // 펜/마우스 그리기 처리
   if (!isDrawing.value) return
 
   event.preventDefault()
@@ -383,6 +413,14 @@ function handlePointerMove(event) {
 }
 
 function handlePointerUp(event) {
+  // 터치 스크롤 종료
+  if (event.pointerType === 'touch') {
+    touchStartY.value = null
+    lastTouchY.value = null
+    return
+  }
+
+  // 펜/마우스 그리기 종료
   if (!isDrawing.value) return
 
   event.preventDefault()
@@ -672,7 +710,7 @@ defineExpose({
   width: 100%;
   height: 100%;
   cursor: crosshair;
-  touch-action: none;
+  touch-action: pan-y;
   z-index: 1;
 }
 
